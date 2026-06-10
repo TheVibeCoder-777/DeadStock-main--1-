@@ -1,0 +1,182 @@
+{
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\eslint.config.js": {
+    "mtime": 1780895581.2104752,
+    "hash": "49c8473bcfcec3aef596a5fb04a6df06"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\vite.config.js": {
+    "mtime": 1780895581.4090526,
+    "hash": "f6ad2eabc80bb3a7dd34a87d24a4e694"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\release\\win-unpacked\\resources\\server\\db.js": {
+    "mtime": 1780895582.3329477,
+    "hash": "363be521695b5410d4cceac8055d7920"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\release\\win-unpacked\\resources\\server\\fix_catch.js": {
+    "mtime": 1780895582.3747065,
+    "hash": "5890db0d314a8d595ae9489c6e3b8f0d"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\release\\win-unpacked\\resources\\server\\server.js": {
+    "mtime": 1780921017.9240077,
+    "hash": "b2975b14ce55b7307cb42b21d7ec7eae"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\server\\db.js": {
+    "mtime": 1780895582.3329477,
+    "hash": "363be521695b5410d4cceac8055d7920"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\server\\fix_catch.js": {
+    "mtime": 1780895582.3747065,
+    "hash": "5890db0d314a8d595ae9489c6e3b8f0d"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\server\\server.js": {
+    "mtime": 1780921017.9240077,
+    "hash": "b2975b14ce55b7307cb42b21d7ec7eae"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\App.jsx": {
+    "mtime": 1780902614.0524824,
+    "hash": "2de36e5d6df513fb7eb1e847fe6edb34"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\main.jsx": {
+    "mtime": 1780895582.5872765,
+    "hash": "1f595fb2af24ad604372c3e7361cb66c"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\components\\ErrorBoundary.jsx": {
+    "mtime": 1780895582.6894867,
+    "hash": "5ec9f4f5ca5e5fdf0c9d8a36a2dd2e35"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\components\\Layout.jsx": {
+    "mtime": 1780902632.4126246,
+    "hash": "96b3a56a45847148b01e919fa496fb8f"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Allocation.jsx": {
+    "mtime": 1780895582.762348,
+    "hash": "8c720fe7ed74074ef044debf7c07bb45"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\AMC.jsx": {
+    "mtime": 1780989771.0860968,
+    "hash": "33fd121a77930f8ec42228453db90cd9"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Backup.jsx": {
+    "mtime": 1780895582.7725568,
+    "hash": "a7426cd80a537e0ec0cd51c630fa569a"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Dashboard.jsx": {
+    "mtime": 1780895582.7838795,
+    "hash": "f97453be3894cf036ddaedbe35b8137a"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\EmployeeConfig.jsx": {
+    "mtime": 1780895582.817564,
+    "hash": "0dad6744a1551eba6b22a464542a2a93"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Employees.jsx": {
+    "mtime": 1780896049.710464,
+    "hash": "d11daa7673cc6a4635cfd332a2c91b15"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\EWasteDashboard.jsx": {
+    "mtime": 1780895582.795938,
+    "hash": "f3b4865dcc83d332628a781510edad15"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\EWasteTable.jsx": {
+    "mtime": 1780895582.807047,
+    "hash": "98719762892c5064665cb142495b5575"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Hardware.jsx": {
+    "mtime": 1780895582.841281,
+    "hash": "b5e5718ffb5248bcd63ffdc8a0610631"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\HardwareConfig.jsx": {
+    "mtime": 1780895582.8523445,
+    "hash": "07758c08405f0899aa28cbbe833a845e"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Invoices.jsx": {
+    "mtime": 1780895582.8631382,
+    "hash": "1c8282da619b43a547b97be377d8a718"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\PermanentAllocation.jsx": {
+    "mtime": 1780895582.8725605,
+    "hash": "0031763e4e9a062f002f5738ad92afa0"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Reports.jsx": {
+    "mtime": 1780895582.8848495,
+    "hash": "b61c58324dcc79c921821614a1d3c3e8"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Software.jsx": {
+    "mtime": 1780895582.8953676,
+    "hash": "b888e48e4a5322fd4deed3f5fa6856b6"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\pages\\Suppliers.jsx": {
+    "mtime": 1780895582.9071224,
+    "hash": "2e33b6f137fff18cb95b5c401979a941"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\utils\\formatDate.js": {
+    "mtime": 1780895582.966785,
+    "hash": "ad0a9122d005a204fc1564757adf3a9d"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\index.html": {
+    "mtime": 1780895581.2576313,
+    "hash": "c66f6f0ba128a3b99520de2558ee3589"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\README.md": {
+    "mtime": 1780895581.2024186,
+    "hash": "2d6dd09b39e80c01cf4429e62537f16b"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\release\\builder-debug.yml": {
+    "mtime": 1780989805.3781822,
+    "hash": "71c6138a40e76740d834e280cf8c7191"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\release\\win-unpacked\\LICENSE.electron.txt": {
+    "mtime": 1780989782.822333,
+    "hash": "4d42118d35941e0f664dddbd83f633c5"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\release\\win-unpacked\\LICENSES.chromium.html": {
+    "mtime": 1780989782.7631745,
+    "hash": "11ee9d008e924e19b33e0b45fdf145df"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icon.png": {
+    "mtime": 1780895581.6605203,
+    "hash": "81d91c767eeedb0fbaca83d96f82baa7"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\vite.svg": {
+    "mtime": 1780895581.669107,
+    "hash": "8e3a10e157f75ada21ab742c022d5430"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\1024x1024.png": {
+    "mtime": 1780895581.825415,
+    "hash": "e1a43355ae3883a49c2f16766eeea3cb"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\128x128.png": {
+    "mtime": 1780895581.836924,
+    "hash": "c8b02cff5755720aed9b3a04a70efc27"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\16x16.png": {
+    "mtime": 1780895581.8477812,
+    "hash": "1676316d6692ed21b79710a577498dd4"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\24x24.png": {
+    "mtime": 1780895581.8601112,
+    "hash": "f473dbaa7ffae109179c8438d2283c92"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\256x256.png": {
+    "mtime": 1780895581.8852239,
+    "hash": "ac5476a34e06ff3bc32f4af5c44c72cd"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\32x32.png": {
+    "mtime": 1780895582.0637424,
+    "hash": "2e5c84475f6087a0212749bd8749d1a8"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\48x48.png": {
+    "mtime": 1780895582.079002,
+    "hash": "2775424325c8dfd0dba036a76334b509"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\512x512.png": {
+    "mtime": 1780895582.0964139,
+    "hash": "5608cbfe7bde576d93289b813d5d419c"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\public\\icons\\png\\64x64.png": {
+    "mtime": 1780895582.1562924,
+    "hash": "4b7ba3c81c2c6d07e6b8a8dfee0eb4d9"
+  },
+  "C:\\Users\\HP\\Downloads\\DeadStock-main (1)\\DeadStock-main\\src\\assets\\react.svg": {
+    "mtime": 1780895582.6298509,
+    "hash": "f0402b67b6ce880f65666bb49e841696"
+  }
+}

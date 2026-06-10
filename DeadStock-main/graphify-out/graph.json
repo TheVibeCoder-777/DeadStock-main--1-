@@ -1,0 +1,2025 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "eslint.config.js",
+      "file_type": "code",
+      "source_file": "eslint.config.js",
+      "source_location": "L1",
+      "id": "eslint_config_js",
+      "community": 17,
+      "norm_label": "eslint.config.js"
+    },
+    {
+      "label": "vite.config.js",
+      "file_type": "code",
+      "source_file": "vite.config.js",
+      "source_location": "L1",
+      "id": "vite_config_js",
+      "community": 18,
+      "norm_label": "vite.config.js"
+    },
+    {
+      "label": "db.js",
+      "file_type": "code",
+      "source_file": "release/win-unpacked/resources/server/db.js",
+      "source_location": "L1",
+      "id": "release_win_unpacked_resources_server_db_js",
+      "community": 0,
+      "norm_label": "db.js"
+    },
+    {
+      "label": "getDatabasePath()",
+      "file_type": "code",
+      "source_file": "server/db.js",
+      "source_location": "L50",
+      "id": "server_db_getdatabasepath",
+      "community": 0,
+      "norm_label": "getdatabasepath()"
+    },
+    {
+      "label": "initDatabase()",
+      "file_type": "code",
+      "source_file": "server/db.js",
+      "source_location": "L62",
+      "id": "server_db_initdatabase",
+      "community": 0,
+      "norm_label": "initdatabase()"
+    },
+    {
+      "label": "getDatabase()",
+      "file_type": "code",
+      "source_file": "server/db.js",
+      "source_location": "L130",
+      "id": "server_db_getdatabase",
+      "community": 0,
+      "norm_label": "getdatabase()"
+    },
+    {
+      "label": "getDatabaseFilePath()",
+      "file_type": "code",
+      "source_file": "server/db.js",
+      "source_location": "L137",
+      "id": "server_db_getdatabasefilepath",
+      "community": 0,
+      "norm_label": "getdatabasefilepath()"
+    },
+    {
+      "label": "getUploadsPath()",
+      "file_type": "code",
+      "source_file": "server/db.js",
+      "source_location": "L144",
+      "id": "server_db_getuploadspath",
+      "community": 0,
+      "norm_label": "getuploadspath()"
+    },
+    {
+      "label": "fix_catch.js",
+      "file_type": "code",
+      "source_file": "release/win-unpacked/resources/server/fix_catch.js",
+      "source_location": "L1",
+      "id": "release_win_unpacked_resources_server_fix_catch_js",
+      "community": 19,
+      "norm_label": "fix_catch.js"
+    },
+    {
+      "label": "server.js",
+      "file_type": "code",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L1",
+      "id": "release_win_unpacked_resources_server_server_js",
+      "community": 0,
+      "norm_label": "server.js"
+    },
+    {
+      "label": "ensureUploadsDir()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L37",
+      "id": "server_server_ensureuploadsdir",
+      "community": 0,
+      "norm_label": "ensureuploadsdir()"
+    },
+    {
+      "label": "formatExcelDate()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L80",
+      "id": "server_server_formatexceldate",
+      "community": 0,
+      "norm_label": "formatexceldate()"
+    },
+    {
+      "label": "generateEDPSerial()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L978",
+      "id": "server_server_generateedpserial",
+      "community": 0,
+      "norm_label": "generateedpserial()"
+    },
+    {
+      "label": "normalize()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L1453",
+      "id": "server_server_normalize",
+      "community": 0,
+      "norm_label": "normalize()"
+    },
+    {
+      "label": "formatDateDDMMYYYY()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L1542",
+      "id": "server_server_formatdateddmmyyyy",
+      "community": 0,
+      "norm_label": "formatdateddmmyyyy()"
+    },
+    {
+      "label": "formatForExcel()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L1931",
+      "id": "server_server_formatforexcel",
+      "community": 0,
+      "norm_label": "formatforexcel()"
+    },
+    {
+      "label": "parseDate()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L3217",
+      "id": "server_server_parsedate",
+      "community": 0,
+      "norm_label": "parsedate()"
+    },
+    {
+      "label": "formatDate()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L3264",
+      "id": "server_server_formatdate",
+      "community": 0,
+      "norm_label": "formatdate()"
+    },
+    {
+      "label": "isStock()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L3331",
+      "id": "server_server_isstock",
+      "community": 0,
+      "norm_label": "isstock()"
+    },
+    {
+      "label": "startServer()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L3524",
+      "id": "server_server_startserver",
+      "community": 0,
+      "norm_label": "startserver()"
+    },
+    {
+      "label": "stopServer()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L3549",
+      "id": "server_server_stopserver",
+      "community": 0,
+      "norm_label": "stopserver()"
+    },
+    {
+      "label": "updateDatabase()",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L3811",
+      "id": "server_server_updatedatabase",
+      "community": 0,
+      "norm_label": "updatedatabase()"
+    },
+    {
+      "label": "db.js",
+      "file_type": "code",
+      "source_file": "server/db.js",
+      "source_location": "L1",
+      "id": "server_db_js",
+      "community": 0,
+      "norm_label": "db.js"
+    },
+    {
+      "label": "fix_catch.js",
+      "file_type": "code",
+      "source_file": "server/fix_catch.js",
+      "source_location": "L1",
+      "id": "server_fix_catch_js",
+      "community": 20,
+      "norm_label": "fix_catch.js"
+    },
+    {
+      "label": "server.js",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "L1",
+      "id": "server_server_js",
+      "community": 0,
+      "norm_label": "server.js"
+    },
+    {
+      "label": "App.jsx",
+      "file_type": "code",
+      "source_file": "src/App.jsx",
+      "source_location": "L1",
+      "id": "src_app_jsx",
+      "community": 4,
+      "norm_label": "app.jsx"
+    },
+    {
+      "label": "App()",
+      "file_type": "code",
+      "source_file": "src/App.jsx",
+      "source_location": "L22",
+      "id": "src_app_app",
+      "community": 4,
+      "norm_label": "app()"
+    },
+    {
+      "label": "main.jsx",
+      "file_type": "code",
+      "source_file": "src/main.jsx",
+      "source_location": "L1",
+      "id": "src_main_jsx",
+      "community": 4,
+      "norm_label": "main.jsx"
+    },
+    {
+      "label": "ErrorBoundary.jsx",
+      "file_type": "code",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L1",
+      "id": "src_components_errorboundary_jsx",
+      "community": 3,
+      "norm_label": "errorboundary.jsx"
+    },
+    {
+      "label": "ErrorBoundary",
+      "file_type": "code",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L3",
+      "id": "components_errorboundary_errorboundary",
+      "community": 3,
+      "norm_label": "errorboundary"
+    },
+    {
+      "label": ".constructor()",
+      "file_type": "code",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L4",
+      "id": "components_errorboundary_errorboundary_constructor",
+      "community": 3,
+      "norm_label": ".constructor()"
+    },
+    {
+      "label": ".getDerivedStateFromError()",
+      "file_type": "code",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L9",
+      "id": "components_errorboundary_errorboundary_getderivedstatefromerror",
+      "community": 3,
+      "norm_label": ".getderivedstatefromerror()"
+    },
+    {
+      "label": ".componentDidCatch()",
+      "file_type": "code",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L13",
+      "id": "components_errorboundary_errorboundary_componentdidcatch",
+      "community": 3,
+      "norm_label": ".componentdidcatch()"
+    },
+    {
+      "label": ".render()",
+      "file_type": "code",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L18",
+      "id": "components_errorboundary_errorboundary_render",
+      "community": 3,
+      "norm_label": ".render()"
+    },
+    {
+      "label": "Layout.jsx",
+      "file_type": "code",
+      "source_file": "src/components/Layout.jsx",
+      "source_location": "L1",
+      "id": "src_components_layout_jsx",
+      "community": 6,
+      "norm_label": "layout.jsx"
+    },
+    {
+      "label": "Layout()",
+      "file_type": "code",
+      "source_file": "src/components/Layout.jsx",
+      "source_location": "L25",
+      "id": "components_layout_layout",
+      "community": 6,
+      "norm_label": "layout()"
+    },
+    {
+      "label": "Allocation.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Allocation.jsx",
+      "source_location": "L1",
+      "id": "src_pages_allocation_jsx",
+      "community": 2,
+      "norm_label": "allocation.jsx"
+    },
+    {
+      "label": "Allocation()",
+      "file_type": "code",
+      "source_file": "src/pages/Allocation.jsx",
+      "source_location": "L15",
+      "id": "pages_allocation_allocation",
+      "community": 2,
+      "norm_label": "allocation()"
+    },
+    {
+      "label": "AMC.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/AMC.jsx",
+      "source_location": "L1",
+      "id": "src_pages_amc_jsx",
+      "community": 4,
+      "norm_label": "amc.jsx"
+    },
+    {
+      "label": "AMC()",
+      "file_type": "code",
+      "source_file": "src/pages/AMC.jsx",
+      "source_location": "L6",
+      "id": "pages_amc_amc",
+      "community": 4,
+      "norm_label": "amc()"
+    },
+    {
+      "label": "Backup.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Backup.jsx",
+      "source_location": "L1",
+      "id": "src_pages_backup_jsx",
+      "community": 13,
+      "norm_label": "backup.jsx"
+    },
+    {
+      "label": "Backup()",
+      "file_type": "code",
+      "source_file": "src/pages/Backup.jsx",
+      "source_location": "L18",
+      "id": "pages_backup_backup",
+      "community": 13,
+      "norm_label": "backup()"
+    },
+    {
+      "label": "Dashboard.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Dashboard.jsx",
+      "source_location": "L1",
+      "id": "src_pages_dashboard_jsx",
+      "community": 10,
+      "norm_label": "dashboard.jsx"
+    },
+    {
+      "label": "Dashboard()",
+      "file_type": "code",
+      "source_file": "src/pages/Dashboard.jsx",
+      "source_location": "L6",
+      "id": "pages_dashboard_dashboard",
+      "community": 10,
+      "norm_label": "dashboard()"
+    },
+    {
+      "label": "EmployeeConfig.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/EmployeeConfig.jsx",
+      "source_location": "L1",
+      "id": "src_pages_employeeconfig_jsx",
+      "community": 5,
+      "norm_label": "employeeconfig.jsx"
+    },
+    {
+      "label": "ConfigSection()",
+      "file_type": "code",
+      "source_file": "src/pages/EmployeeConfig.jsx",
+      "source_location": "L6",
+      "id": "pages_employeeconfig_configsection",
+      "community": 5,
+      "norm_label": "configsection()"
+    },
+    {
+      "label": "EmployeeConfig()",
+      "file_type": "code",
+      "source_file": "src/pages/EmployeeConfig.jsx",
+      "source_location": "L120",
+      "id": "pages_employeeconfig_employeeconfig",
+      "community": 5,
+      "norm_label": "employeeconfig()"
+    },
+    {
+      "label": "Employees.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Employees.jsx",
+      "source_location": "L1",
+      "id": "src_pages_employees_jsx",
+      "community": 8,
+      "norm_label": "employees.jsx"
+    },
+    {
+      "label": "Employees()",
+      "file_type": "code",
+      "source_file": "src/pages/Employees.jsx",
+      "source_location": "L16",
+      "id": "pages_employees_employees",
+      "community": 8,
+      "norm_label": "employees()"
+    },
+    {
+      "label": "EWasteDashboard.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/EWasteDashboard.jsx",
+      "source_location": "L1",
+      "id": "src_pages_ewastedashboard_jsx",
+      "community": 12,
+      "norm_label": "ewastedashboard.jsx"
+    },
+    {
+      "label": "EWasteDashboard()",
+      "file_type": "code",
+      "source_file": "src/pages/EWasteDashboard.jsx",
+      "source_location": "L7",
+      "id": "pages_ewastedashboard_ewastedashboard",
+      "community": 12,
+      "norm_label": "ewastedashboard()"
+    },
+    {
+      "label": "EWasteTable.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/EWasteTable.jsx",
+      "source_location": "L1",
+      "id": "src_pages_ewastetable_jsx",
+      "community": 2,
+      "norm_label": "ewastetable.jsx"
+    },
+    {
+      "label": "EWasteTable()",
+      "file_type": "code",
+      "source_file": "src/pages/EWasteTable.jsx",
+      "source_location": "L17",
+      "id": "pages_ewastetable_ewastetable",
+      "community": 2,
+      "norm_label": "ewastetable()"
+    },
+    {
+      "label": "Hardware.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Hardware.jsx",
+      "source_location": "L1",
+      "id": "src_pages_hardware_jsx",
+      "community": 2,
+      "norm_label": "hardware.jsx"
+    },
+    {
+      "label": "Hardware()",
+      "file_type": "code",
+      "source_file": "src/pages/Hardware.jsx",
+      "source_location": "L7",
+      "id": "pages_hardware_hardware",
+      "community": 2,
+      "norm_label": "hardware()"
+    },
+    {
+      "label": "HardwareConfig.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/HardwareConfig.jsx",
+      "source_location": "L1",
+      "id": "src_pages_hardwareconfig_jsx",
+      "community": 14,
+      "norm_label": "hardwareconfig.jsx"
+    },
+    {
+      "label": "HardwareConfig()",
+      "file_type": "code",
+      "source_file": "src/pages/HardwareConfig.jsx",
+      "source_location": "L5",
+      "id": "pages_hardwareconfig_hardwareconfig",
+      "community": 14,
+      "norm_label": "hardwareconfig()"
+    },
+    {
+      "label": "Invoices.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Invoices.jsx",
+      "source_location": "L1",
+      "id": "src_pages_invoices_jsx",
+      "community": 11,
+      "norm_label": "invoices.jsx"
+    },
+    {
+      "label": "Invoices()",
+      "file_type": "code",
+      "source_file": "src/pages/Invoices.jsx",
+      "source_location": "L6",
+      "id": "pages_invoices_invoices",
+      "community": 11,
+      "norm_label": "invoices()"
+    },
+    {
+      "label": "PermanentAllocation.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/PermanentAllocation.jsx",
+      "source_location": "L1",
+      "id": "src_pages_permanentallocation_jsx",
+      "community": 9,
+      "norm_label": "permanentallocation.jsx"
+    },
+    {
+      "label": "PermanentAllocation()",
+      "file_type": "code",
+      "source_file": "src/pages/PermanentAllocation.jsx",
+      "source_location": "L6",
+      "id": "pages_permanentallocation_permanentallocation",
+      "community": 9,
+      "norm_label": "permanentallocation()"
+    },
+    {
+      "label": "Reports.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Reports.jsx",
+      "source_location": "L1",
+      "id": "src_pages_reports_jsx",
+      "community": 15,
+      "norm_label": "reports.jsx"
+    },
+    {
+      "label": "Reports()",
+      "file_type": "code",
+      "source_file": "src/pages/Reports.jsx",
+      "source_location": "L5",
+      "id": "pages_reports_reports",
+      "community": 15,
+      "norm_label": "reports()"
+    },
+    {
+      "label": "Software.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Software.jsx",
+      "source_location": "L1",
+      "id": "src_pages_software_jsx",
+      "community": 7,
+      "norm_label": "software.jsx"
+    },
+    {
+      "label": "Software()",
+      "file_type": "code",
+      "source_file": "src/pages/Software.jsx",
+      "source_location": "L16",
+      "id": "pages_software_software",
+      "community": 7,
+      "norm_label": "software()"
+    },
+    {
+      "label": "Suppliers.jsx",
+      "file_type": "code",
+      "source_file": "src/pages/Suppliers.jsx",
+      "source_location": "L1",
+      "id": "src_pages_suppliers_jsx",
+      "community": 16,
+      "norm_label": "suppliers.jsx"
+    },
+    {
+      "label": "Suppliers()",
+      "file_type": "code",
+      "source_file": "src/pages/Suppliers.jsx",
+      "source_location": "L5",
+      "id": "pages_suppliers_suppliers",
+      "community": 16,
+      "norm_label": "suppliers()"
+    },
+    {
+      "label": "formatDate.js",
+      "file_type": "code",
+      "source_file": "src/utils/formatDate.js",
+      "source_location": "L1",
+      "id": "src_utils_formatdate_js",
+      "community": 2,
+      "norm_label": "formatdate.js"
+    },
+    {
+      "label": "formatDate()",
+      "file_type": "code",
+      "source_file": "src/utils/formatDate.js",
+      "source_location": "L6",
+      "id": "utils_formatdate_formatdate",
+      "community": 2,
+      "norm_label": "formatdate()"
+    },
+    {
+      "label": "README.md",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "id": "readme_md",
+      "community": 1,
+      "norm_label": "readme.md"
+    },
+    {
+      "label": "DeadStock Inventory Management System",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "id": "deadstock_main_readme_deadstock_inventory_management_system",
+      "community": 1,
+      "norm_label": "deadstock inventory management system"
+    },
+    {
+      "label": "\ud83d\ude80 Key Features",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L5",
+      "id": "deadstock_main_readme_key_features",
+      "community": 1,
+      "norm_label": "\ud83d\ude80 key features"
+    },
+    {
+      "label": "\ud83d\udee0\ufe0f Technology Stack",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L16",
+      "id": "deadstock_main_readme_technology_stack",
+      "community": 1,
+      "norm_label": "\ud83d\udee0\ufe0f technology stack"
+    },
+    {
+      "label": "\ud83d\udce6 How to Use (For End Users)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L24",
+      "id": "deadstock_main_readme_how_to_use_for_end_users",
+      "community": 1,
+      "norm_label": "\ud83d\udce6 how to use (for end users)"
+    },
+    {
+      "label": "\ud83d\udcbb Developer Setup",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L32",
+      "id": "deadstock_main_readme_developer_setup",
+      "community": 1,
+      "norm_label": "\ud83d\udcbb developer setup"
+    },
+    {
+      "label": "Prerequisites",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L36",
+      "id": "deadstock_main_readme_prerequisites",
+      "community": 1,
+      "norm_label": "prerequisites"
+    },
+    {
+      "label": "Installation",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L40",
+      "id": "deadstock_main_readme_installation",
+      "community": 1,
+      "norm_label": "installation"
+    },
+    {
+      "label": "code:bash (npm install)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L43",
+      "id": "deadstock_main_readme_codeblock_1",
+      "community": 1,
+      "norm_label": "code:bash (npm install)"
+    },
+    {
+      "label": "Running in Development",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L47",
+      "id": "deadstock_main_readme_running_in_development",
+      "community": 1,
+      "norm_label": "running in development"
+    },
+    {
+      "label": "code:bash (npm run electron:dev)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L49",
+      "id": "deadstock_main_readme_codeblock_2",
+      "community": 1,
+      "norm_label": "code:bash (npm run electron:dev)"
+    },
+    {
+      "label": "Building for Production",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L53",
+      "id": "deadstock_main_readme_building_for_production",
+      "community": 1,
+      "norm_label": "building for production"
+    },
+    {
+      "label": "code:bash (# Build React frontend)",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L55",
+      "id": "deadstock_main_readme_codeblock_3",
+      "community": 1,
+      "norm_label": "code:bash (# build react frontend)"
+    },
+    {
+      "label": "\ud83c\udfd7\ufe0f Architecture",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L63",
+      "id": "deadstock_main_readme_architecture",
+      "community": 1,
+      "norm_label": "\ud83c\udfd7\ufe0f architecture"
+    },
+    {
+      "label": "\ud83d\udcc4 License",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L79",
+      "id": "deadstock_main_readme_license",
+      "community": 1,
+      "norm_label": "\ud83d\udcc4 license"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/db.js",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_db_js",
+      "target": "server_db_getdatabasepath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/db.js",
+      "source_location": "L62",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_db_js",
+      "target": "server_db_initdatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/db.js",
+      "source_location": "L130",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_db_js",
+      "target": "server_db_getdatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/db.js",
+      "source_location": "L137",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_db_js",
+      "target": "server_db_getdatabasefilepath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/db.js",
+      "source_location": "L144",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_db_js",
+      "target": "server_db_getuploadspath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "release_win_unpacked_resources_server_db_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "server/db.js",
+      "source_location": "L63",
+      "weight": 1.0,
+      "source": "server_db_initdatabase",
+      "target": "server_db_getdatabasepath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/db.js",
+      "source_location": "L50",
+      "weight": 1.0,
+      "source": "server_db_js",
+      "target": "server_db_getdatabasepath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_db_initdatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/db.js",
+      "source_location": "L62",
+      "weight": 1.0,
+      "source": "server_db_js",
+      "target": "server_db_initdatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_db_initdatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/db.js",
+      "source_location": "L130",
+      "weight": 1.0,
+      "source": "server_db_js",
+      "target": "server_db_getdatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_db_getdatabasefilepath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/db.js",
+      "source_location": "L137",
+      "weight": 1.0,
+      "source": "server_db_js",
+      "target": "server_db_getdatabasefilepath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_db_getdatabasefilepath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_db_getuploadspath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/db.js",
+      "source_location": "L144",
+      "weight": 1.0,
+      "source": "server_db_js",
+      "target": "server_db_getuploadspath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_db_getuploadspath",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_ensureuploadsdir",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L80",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_formatexceldate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L978",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_generateedpserial",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L3634",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_normalize",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L1598",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_formatdateddmmyyyy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L1931",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_formatforexcel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L3217",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_parsedate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L3264",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L3331",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_isstock",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L3524",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_startserver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L3549",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_stopserver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "release/win-unpacked/resources/server/server.js",
+      "source_location": "L3811",
+      "weight": 1.0,
+      "source": "release_win_unpacked_resources_server_server_js",
+      "target": "server_server_updatedatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3815",
+      "weight": 1.0,
+      "source": "server_server_updatedatabase",
+      "target": "server_server_ensureuploadsdir",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_ensureuploadsdir",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L80",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_formatexceldate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L978",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_generateedpserial",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3634",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_normalize",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L1598",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_formatdateddmmyyyy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L1931",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_formatforexcel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3265",
+      "weight": 1.0,
+      "source": "server_server_formatdate",
+      "target": "server_server_parsedate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3217",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_parsedate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3264",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3331",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_isstock",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3524",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_startserver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3549",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_stopserver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L3811",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_server_updatedatabase",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "server/server.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "server_server_js",
+      "target": "server_db_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_components_errorboundary_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_components_layout_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_suppliers_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_invoices_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_hardware_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_hardwareconfig_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_employees_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_employeeconfig_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L12",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_allocation_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_ewastedashboard_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_ewastetable_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_software_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_reports_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_amc_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_permanentallocation_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_dashboard_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_pages_backup_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/App.jsx",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "src_app_jsx",
+      "target": "src_app_app",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/main.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_main_jsx",
+      "target": "src_app_jsx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "src_components_errorboundary_jsx",
+      "target": "components_errorboundary_errorboundary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "components_errorboundary_errorboundary",
+      "target": "components_errorboundary_errorboundary_constructor",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "components_errorboundary_errorboundary",
+      "target": "components_errorboundary_errorboundary_getderivedstatefromerror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "components_errorboundary_errorboundary",
+      "target": "components_errorboundary_errorboundary_componentdidcatch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/ErrorBoundary.jsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "components_errorboundary_errorboundary",
+      "target": "components_errorboundary_errorboundary_render",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/components/Layout.jsx",
+      "source_location": "L25",
+      "weight": 1.0,
+      "source": "src_components_layout_jsx",
+      "target": "components_layout_layout",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Allocation.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_allocation_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Allocation.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_allocation_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Allocation.jsx",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "src_pages_allocation_jsx",
+      "target": "pages_allocation_allocation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/AMC.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_amc_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/AMC.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_amc_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/AMC.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_pages_amc_jsx",
+      "target": "pages_amc_amc",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Backup.jsx",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "src_pages_backup_jsx",
+      "target": "pages_backup_backup",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Dashboard.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_pages_dashboard_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Dashboard.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "src_pages_dashboard_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Dashboard.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_pages_dashboard_jsx",
+      "target": "pages_dashboard_dashboard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EmployeeConfig.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_pages_employeeconfig_jsx",
+      "target": "pages_employeeconfig_configsection",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EmployeeConfig.jsx",
+      "source_location": "L120",
+      "weight": 1.0,
+      "source": "src_pages_employeeconfig_jsx",
+      "target": "pages_employeeconfig_employeeconfig",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Employees.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_employees_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Employees.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_employees_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Employees.jsx",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "src_pages_employees_jsx",
+      "target": "pages_employees_employees",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EWasteDashboard.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_ewastedashboard_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EWasteDashboard.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_ewastedashboard_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EWasteDashboard.jsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_pages_ewastedashboard_jsx",
+      "target": "pages_ewastedashboard_ewastedashboard",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EWasteTable.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_ewastetable_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EWasteTable.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_ewastetable_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/EWasteTable.jsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "src_pages_ewastetable_jsx",
+      "target": "pages_ewastetable_ewastetable",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Hardware.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_hardware_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Hardware.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_hardware_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Hardware.jsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "src_pages_hardware_jsx",
+      "target": "pages_hardware_hardware",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/HardwareConfig.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_pages_hardwareconfig_jsx",
+      "target": "pages_hardwareconfig_hardwareconfig",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Invoices.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_invoices_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Invoices.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_invoices_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Invoices.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_pages_invoices_jsx",
+      "target": "pages_invoices_invoices",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/PermanentAllocation.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_permanentallocation_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/PermanentAllocation.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_permanentallocation_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/PermanentAllocation.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_pages_permanentallocation_jsx",
+      "target": "pages_permanentallocation_permanentallocation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Reports.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_pages_reports_jsx",
+      "target": "pages_reports_reports",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Software.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_software_jsx",
+      "target": "src_utils_formatdate_js",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Software.jsx",
+      "source_location": "L2",
+      "weight": 1.0,
+      "source": "src_pages_software_jsx",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Software.jsx",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "src_pages_software_jsx",
+      "target": "pages_software_software",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/pages/Suppliers.jsx",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "src_pages_suppliers_jsx",
+      "target": "pages_suppliers_suppliers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/utils/formatDate.js",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "src_utils_formatdate_js",
+      "target": "utils_formatdate_formatdate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "readme_md",
+      "target": "deadstock_main_readme_deadstock_inventory_management_system",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_deadstock_inventory_management_system",
+      "target": "deadstock_main_readme_key_features",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_deadstock_inventory_management_system",
+      "target": "deadstock_main_readme_technology_stack",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_deadstock_inventory_management_system",
+      "target": "deadstock_main_readme_how_to_use_for_end_users",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_deadstock_inventory_management_system",
+      "target": "deadstock_main_readme_developer_setup",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L63",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_deadstock_inventory_management_system",
+      "target": "deadstock_main_readme_architecture",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L79",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_deadstock_inventory_management_system",
+      "target": "deadstock_main_readme_license",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_developer_setup",
+      "target": "deadstock_main_readme_prerequisites",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L40",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_developer_setup",
+      "target": "deadstock_main_readme_installation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L47",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_developer_setup",
+      "target": "deadstock_main_readme_running_in_development",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_developer_setup",
+      "target": "deadstock_main_readme_building_for_production",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_installation",
+      "target": "deadstock_main_readme_codeblock_1",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_running_in_development",
+      "target": "deadstock_main_readme_codeblock_2",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L55",
+      "weight": 1.0,
+      "source": "deadstock_main_readme_building_for_production",
+      "target": "deadstock_main_readme_codeblock_3",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": []
+}

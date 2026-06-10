@@ -1,0 +1,3815 @@
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import { createRequire } from 'module';
+import db, { getUploadsPath, initDatabase, getDatabaseFilePath } from './db.js';
+
+const require = createRequire(import.meta.url);
+const xlsx = require('xlsx');
+const fs = require('fs');
+const path = require('path');
+
+// --- Process-Level Crash Guards ---
+process.on('unhandledRejection', (reason, _promise) => {
+    console.error('[FATAL] Unhandled Promise Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('[FATAL] Uncaught Exception:', error);
+    // Give the process a moment to flush logs, then exit
+    setTimeout(() => process.exit(1), 1000);
+});
+
+// Parse CLI args (simple)
+const args = process.argv;
+console.log('Raw Process Arguments:', args);
+const uploadsFlagIndex = args.indexOf('--uploads-path');
+let cliUploadsPath = null;
+if (uploadsFlagIndex > -1 && args[uploadsFlagIndex + 1]) {
+    cliUploadsPath = args[uploadsFlagIndex + 1];
+    console.log('CLI Override for Uploads Path:', cliUploadsPath);
+}
+
+// Get uploads directory (dynamic for Electron, static for standalone)
+let uploadsDir = cliUploadsPath || getUploadsPath();
+
+// Ensure uploads directory exists
+function ensureUploadsDir() {
+    if (!fs.existsSync(uploadsDir)) {
+        try {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        } catch (e) {
+            console.error('Context:', e.message || e);
+        }
+    }
+    return uploadsDir;
+}
+ensureUploadsDir();
+
+// Dynamic storage that checks uploads path on each request
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        try {
+            console.log('Starting file upload...');
+            const dir = ensureUploadsDir();
+            console.log(`Upload destination: ${dir}`);
+            if (!fs.existsSync(dir)) {
+                console.log('Directory missing, recreating...');
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            cb(null, dir);
+        } catch (error) {
+            console.error('Context:', error.message || error);
+            cb(error);
+        }
+    },
+    filename: (req, file, cb) => {
+        // Sanitize filename to avoid Windows invalid chars
+        const sanitized = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        console.log(`Sanitized: ${file.originalname} -> ${sanitized}`);
+        cb(null, uniqueSuffix + '-' + sanitized);
+    }
+});
+const upload = multer({ storage: storage });
+
+// Memory storage for bulk uploads that need buffer access
+const memoryUpload = multer({ storage: multer.memoryStorage() });
+
+// --- Global Helper: Format Excel serial dates to DD-MM-YYYY ---
+const formatExcelDate = (val) => {
+    if (!val && val !== 0) return '';
+    const num = Number(val);
+    // Excel serial dates: 10000 (~1927) to 90000 (~2146) covers valid range
+    if (!isNaN(num) && num > 10000 && num < 90000) {
+        const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    }
+    return val ? String(val) : '';
+};
+
+const app = express();
+const port = 3001;
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+
+
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
+// Serve uploaded files dynamically
+app.use('/uploads', (req, res, next) => {
+    express.static(ensureUploadsDir())(req, res, next);
+});
+
+// Note: Global error handler is registered AFTER all routes (see bottom of file)
+
+app.get('/', (req, res) => {
+    res.json({ message: 'Inventory System Backend (LowDB) is running' });
+});
+
+// --- Database Info API (for Electron) ---
+app.get('/api/database-info', (req, res) => {
+    res.json({
+        path: process.env.DEADSTOCK_DB_PATH || 'default',
+        uploadsPath: uploadsDir
+    });
+});
+
+// --- Suppliers API ---
+
+// GET All Suppliers
+app.get('/api/suppliers', async (req, res) => {
+    try {
+        await db.read();
+        db.data ||= { suppliers: [] }; // Safety check
+        res.json(db.data.suppliers || []);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch suppliers' });
+    }
+});
+
+// POST New Supplier
+app.post('/api/suppliers', async (req, res) => {
+    try {
+        const newSupplier = req.body;
+        await db.read();
+        db.data.suppliers.push(newSupplier);
+        await db.write();
+        res.status(201).json({ message: 'New Supplier Added', supplier: newSupplier });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to add supplier' });
+    }
+});
+
+// PUT Update Supplier
+app.put('/api/suppliers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedData = req.body;
+        await db.read();
+
+        const index = db.data.suppliers.findIndex(s => s.Supplier_ID === id);
+        if (index !== -1) {
+            db.data.suppliers[index] = { ...db.data.suppliers[index], ...updatedData };
+            await db.write();
+            res.json({ message: 'Supplier Details Updated', supplier: db.data.suppliers[index] });
+        } else {
+            res.status(404).json({ error: 'Supplier not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to update supplier' });
+    }
+});
+
+// DELETE Supplier (match by Supplier_ID or fallback to id field)
+app.delete('/api/suppliers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.read();
+
+        const initialLength = db.data.suppliers.length;
+        db.data.suppliers = db.data.suppliers.filter(s => s.Supplier_ID !== id && s.id !== id);
+
+        if (db.data.suppliers.length < initialLength) {
+            await db.write();
+            res.json({ message: 'Supplier Deleted' });
+        } else {
+            res.status(404).json({ error: 'Supplier not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to delete supplier' });
+    }
+});
+
+// --- Excel Bulk Operations ---
+
+// Upload Excel (Base64)
+app.post('/api/suppliers/upload', async (req, res) => {
+    try {
+        let filePath;
+
+        if (req.body.processOnly) {
+            // File already saved via IPC
+            filePath = path.join(uploadsDir, req.body.fileName);
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ error: 'File not found on server' });
+            }
+        } else {
+            // Base64 upload
+            const { fileData } = req.body;
+            if (!fileData) {
+                return res.status(400).json({ error: 'No file data provided' });
+            }
+            filePath = path.join(uploadsDir, `suppliers_${Date.now()}.xlsx`);
+            const buffer = Buffer.from(fileData.split(',')[1], 'base64');
+            fs.writeFileSync(filePath, buffer);
+        }
+
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(sheet);
+
+        console.log('Parsed Excel Data (First Row):', data[0]); // DEBUG LOG
+
+        await db.read();
+        db.data ||= { suppliers: [] }; // Safety init
+        if (!db.data.suppliers) db.data.suppliers = [];
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        for (const rawRow of data) {
+            const row = {
+                Supplier_ID: rawRow['Supplier_ID'] || rawRow['Supplier ID'],
+                Supplier_Name: rawRow['Supplier_Name'] || rawRow['Supplier Name'] || rawRow['Name'],
+                Category: rawRow['Category'],
+                Address_1: rawRow['Address_1'] || rawRow['Address 1'] || rawRow['Address'],
+                Address_2: rawRow['Address_2'] || rawRow['Address 2'],
+                City: rawRow['City'],
+                State: rawRow['State'],
+                PIN_Code: rawRow['PIN_Code'] || rawRow['PIN Code'] || rawRow['PIN'],
+                POC_Person: rawRow['POC_Person'] || rawRow['POC Person'] || rawRow['POC'],
+                Phone_Number: rawRow['Phone_Number'] || rawRow['Phone Number'] || rawRow['Phone'],
+                Email: rawRow['Email']
+            };
+
+            if (!row.Supplier_Name) {
+                console.log('Skipping row due to missing Supplier Name:', rawRow);
+                continue;
+            }
+
+            if (!row.Supplier_ID) {
+                const num = Math.floor(Math.random() * 9000) + 1000;
+                row.Supplier_ID = `S${num}`;
+            }
+
+            const supplierData = {
+                Supplier_ID: row.Supplier_ID,
+                Category: row.Category || 'All (H/S/C)',
+                Supplier_Name: row.Supplier_Name,
+                Address_1: row.Address_1 || '',
+                Address_2: row.Address_2 || '',
+                City: row.City || '',
+                State: row.State || '',
+                PIN_Code: row.PIN_Code || '',
+                POC_Person: row.POC_Person || '',
+                Phone_Number: row.Phone_Number || '',
+                Email: row.Email || ''
+            };
+
+            // Upsert: update if exists by Supplier_ID, insert if new
+            const existingIndex = db.data.suppliers.findIndex(s => s.Supplier_ID === row.Supplier_ID);
+            if (existingIndex !== -1) {
+                Object.assign(db.data.suppliers[existingIndex], supplierData);
+                updatedCount++;
+            } else {
+                db.data.suppliers.push(supplierData);
+                addedCount++;
+            }
+        }
+
+        await db.write();
+        res.json({ message: `Bulk upload processed. Added ${addedCount} new, Updated ${updatedCount} existing suppliers.` });
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to process Excel file' });
+    }
+});
+
+// Download Excel
+app.get('/api/suppliers/download', async (req, res) => {
+    try {
+        await db.read();
+        const suppliers = db.data.suppliers;
+
+        const worksheet = xlsx.utils.json_to_sheet(suppliers);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Suppliers');
+
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="suppliers.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to generate Excel file' });
+    }
+});
+
+// Suppliers Download Buffer (for Native Save) - v1.2.0
+app.get('/api/suppliers/download-buffer', async (req, res) => {
+    try {
+        await db.read();
+        const suppliers = db.data.suppliers;
+        const worksheet = xlsx.utils.json_to_sheet(suppliers);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Suppliers');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        res.json({ buffer: Array.from(buffer) });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to generate Excel buffer' });
+    }
+});
+
+// --- Invoices API ---
+
+// GET All Invoices
+app.get('/api/invoices', async (req, res) => {
+    try {
+        await db.read();
+        db.data ||= { invoices: [] };
+        const invoices = (db.data.invoices || []).map(inv => ({
+            ...inv,
+            Date: formatExcelDate(inv.Date),
+            Items: (inv.Items || []).map(item => ({
+                ...item,
+                Warranty_Upto: formatExcelDate(item.Warranty_Upto)
+            }))
+        }));
+        res.json(invoices);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch invoices' });
+    }
+});
+
+// POST New Invoice
+// POST New Invoice (Base64)
+app.post('/api/invoices', async (req, res) => {
+    try {
+        // Expecting { data: Object, fileData: "base64...", fileName: "name.pdf" }
+        const { fileData, fileName, data } = req.body;
+        const invoiceData = (typeof data === 'string') ? JSON.parse(data) : data;
+
+        let savedFilename = null;
+
+        if (fileData && fileName) {
+            try {
+                // Sanitize filename
+                const safeName = fileName.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+                const uniqueName = Date.now() + '-' + safeName;
+                const buffer = Buffer.from(fileData.split(',')[1], 'base64');
+
+                const targetDir = ensureUploadsDir();
+                const targetPath = path.join(targetDir, uniqueName);
+
+                fs.writeFileSync(targetPath, buffer);
+                console.log(`Saved Base64 file: ${uniqueName}`);
+                savedFilename = uniqueName;
+            } catch (err) {
+                console.error('Context:', err.message || err);
+                return res.status(500).json({ error: 'Failed to write file' });
+            }
+        }
+
+        await db.read();
+        db.data.invoices = db.data.invoices || [];
+
+        // Generate Serial Number (Simple Auto Increment for now)
+        let maxInv = 0;
+        db.data.invoices.forEach(inv => {
+            if (inv.Serial_Number && inv.Serial_Number.startsWith('INV')) {
+                const num = parseInt(inv.Serial_Number.substring(3));
+                if (num > maxInv) maxInv = num;
+            }
+        });
+        const nextSerial = `INV${String(maxInv + 1).padStart(3, '0')}`;
+
+        const newInvoice = {
+            id: Date.now().toString(), // Internal ID
+            Serial_Number: nextSerial,
+            ...invoiceData,
+            Bill_PDF: savedFilename,
+            Items: invoiceData.Items || [] // Ensure Items array exists
+        };
+
+        // Check Bill Number Duplicate
+        const duplicate = db.data.invoices.find(inv => inv.Bill_Number === newInvoice.Bill_Number);
+        if (duplicate) {
+            return res.status(400).json({ error: 'Bill Number already exists' });
+        }
+
+        db.data.invoices.push(newInvoice);
+        await db.write();
+
+        res.status(201).json({ message: 'Invoice Added', invoice: newInvoice });
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to save invoice' });
+    }
+});
+
+// PUT Update Invoice (Support file replacement)
+// PUT Update Invoice (Base64)
+app.put('/api/invoices/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Expecting { data: Object, fileData: "base64...", fileName: "name.pdf" }
+        const { fileData, fileName, data } = req.body;
+        const invoiceData = (typeof data === 'string') ? JSON.parse(data) : data;
+
+        // Handle New File Upload if present
+        let savedFilename = undefined;
+
+        if (fileData && fileName) {
+            try {
+                const safeName = fileName.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+                const uniqueName = Date.now() + '-' + safeName;
+                const buffer = Buffer.from(fileData.split(',')[1], 'base64');
+
+                const targetDir = ensureUploadsDir();
+                const targetPath = path.join(targetDir, uniqueName);
+
+                fs.writeFileSync(targetPath, buffer);
+                console.log(`Saved Base64 file (Update): ${uniqueName}`);
+                savedFilename = uniqueName;
+            } catch (err) {
+                console.error('Context:', err.message || err);
+                return res.status(500).json({ error: 'Failed to write file' });
+            }
+        }
+
+        await db.read();
+        const index = db.data.invoices.findIndex(inv => inv.id === id);
+
+        if (index !== -1) {
+            const oldInvoice = db.data.invoices[index];
+            const updatedInvoice = {
+                ...oldInvoice,
+                ...invoiceData,
+                // If savedFilename is set (new file), use it.
+                // If not set, check if invoiceData explicitly clears it (null), otherwise keep old.
+                Bill_PDF: savedFilename !== undefined ? savedFilename : (invoiceData.Bill_PDF !== undefined ? invoiceData.Bill_PDF : oldInvoice.Bill_PDF),
+                // Update Items if provided, otherwise keep old ones.
+                Items: invoiceData.Items || oldInvoice.Items
+            };
+
+            db.data.invoices[index] = updatedInvoice;
+            await db.write();
+            res.json({ message: 'Invoice Updated', invoice: updatedInvoice });
+        } else {
+            res.status(404).json({ error: 'Invoice not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to update invoice' });
+    }
+});
+
+// DELETE Invoice
+app.delete('/api/invoices/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.read();
+        const initialLength = db.data.invoices.length;
+        db.data.invoices = db.data.invoices.filter(inv => inv.id !== id);
+
+        if (db.data.invoices.length < initialLength) {
+            await db.write();
+            res.json({ message: 'Invoice Deleted' });
+        } else {
+            res.status(404).json({ error: 'Invoice not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to delete invoice' });
+    }
+});
+
+// Download Invoices Excel
+app.get('/api/invoices/download', async (req, res) => {
+    try {
+        await db.read();
+        // Flatten data for Excel (Master + Items?)
+        // Usually people want one row per item, with master info repeated.
+        const flatData = [];
+        const invoices = db.data.invoices || [];
+
+        invoices.forEach(inv => {
+            if (inv.Items && inv.Items.length > 0) {
+                inv.Items.forEach(item => {
+                    flatData.push({
+                        Serial_Number: inv.Serial_Number,
+                        Bill_Number: inv.Bill_Number,
+                        Firm_Name: inv.Firm_Name,
+                        Date: inv.Date,
+                        Amount: inv.Amount,
+                        Category: inv.Category,
+                        Hardware_Item: item.Hardware_Item,
+                        Item_Qty: item.Quantity,
+                        Warranty: item.Warranty,
+                        Warranty_Upto: item.Warranty_Upto,
+                        Item_Details: item.Item_Details,
+                        OEM_Software: item.OEM_Software
+                    });
+                });
+            } else {
+                // Invoice with no items
+                flatData.push({
+                    Serial_Number: inv.Serial_Number,
+                    Bill_Number: inv.Bill_Number,
+                    Firm_Name: inv.Firm_Name,
+                    Date: inv.Date,
+                    Amount: inv.Amount,
+                    Category: inv.Category,
+                    Hardware_Item: '', Item_Qty: '', Warranty: '', Warranty_Upto: '', Item_Details: '', OEM_Software: ''
+                });
+            }
+        });
+
+        const worksheet = xlsx.utils.json_to_sheet(flatData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Invoices');
+
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="invoices.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to download invoices' });
+    }
+});
+
+// Upload Invoices Excel (Bulk)
+app.post('/api/invoices/upload', async (req, res) => {
+    try {
+        let filePath;
+
+        if (req.body.processOnly) {
+            // File already saved via IPC - read from uploads dir
+            filePath = path.join(uploadsDir, req.body.fileName);
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ error: 'File not found on server' });
+            }
+        } else if (req.body.fileData) {
+            // Base64 upload fallback
+            filePath = path.join(uploadsDir, `invoices_${Date.now()}.xlsx`);
+            const buffer = Buffer.from(req.body.fileData.split(',')[1], 'base64');
+            fs.writeFileSync(filePath, buffer);
+        } else {
+            return res.status(400).json({ error: 'No file data provided' });
+        }
+
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        console.log('Invoice Excel First Row:', data[0]);
+
+        await db.read();
+        db.data.invoices = db.data.invoices || [];
+
+        // Get max serial number for new invoices
+        let maxSerial = 0;
+        db.data.invoices.forEach(inv => {
+            if (inv.Serial_Number) {
+                const num = parseInt(inv.Serial_Number, 10);
+                if (num > maxSerial) maxSerial = num;
+            }
+        });
+
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        // Group items by Bill_Number
+        const invoiceMap = new Map();
+
+        for (const row of data) {
+            const billNumber = row['Bill_Number'] || row['Bill Number'] || row['Bill_No'];
+            if (!billNumber) {
+                continue;
+            }
+
+            if (!invoiceMap.has(billNumber)) {
+                invoiceMap.set(billNumber, {
+                    Bill_Number: String(billNumber),
+                    Firm_Name: row['Firm_Name'] || row['Firm Name'] || row['Supplier'] || '',
+                    Date: formatExcelDate(row['Date']),
+                    Amount: row['Amount'] || row['Total'] || '0',
+                    Category: row['Category'] || 'Hardware',
+                    Items: []
+                });
+            }
+
+            const hardwareItem = row['Hardware_Item'] || row['Hardware Item'] || row['Item'];
+            if (hardwareItem) {
+                invoiceMap.get(billNumber).Items.push({
+                    Hardware_Item: hardwareItem,
+                    Quantity: row['Quantity'] || row['Item_Qty'] || row['Qty'] || 1,
+                    Warranty: row['Warranty'] || '',
+                    Warranty_Upto: formatExcelDate(row['Warranty_Upto'] || row['Warranty Upto']),
+                    Item_Details: row['Item_Details'] || row['Item Details'] || row['Details'] || '',
+                    OEM_Software: row['OEM_Software'] || row['OEM Software'] || ''
+                });
+            }
+        }
+
+        // Upsert invoices by Bill_Number
+        for (const [billNumber, invoiceData] of invoiceMap) {
+            const existingIndex = db.data.invoices.findIndex(inv => inv.Bill_Number === billNumber);
+            if (existingIndex !== -1) {
+                // Update existing invoice, preserve id and Serial_Number
+                const existing = db.data.invoices[existingIndex];
+                Object.assign(db.data.invoices[existingIndex], {
+                    ...invoiceData,
+                    id: existing.id,
+                    Serial_Number: existing.Serial_Number
+                });
+                updatedCount++;
+            } else {
+                maxSerial++;
+                db.data.invoices.push({
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    Serial_Number: maxSerial,
+                    ...invoiceData
+                });
+                addedCount++;
+            }
+        }
+
+        await db.write();
+        res.json({ message: `Bulk upload complete. Added ${addedCount} new, Updated ${updatedCount} existing invoices.` });
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to process Excel file' });
+    }
+});
+
+// --- Hardware Module ---
+
+// 1. Hardware Configuration (Categories & Prefixes)
+app.get('/api/hardware/config', async (req, res) => {
+    try {
+        await db.read();
+        db.data ||= {};
+        // Default Config if empty
+        if (!db.data.hardwareConfig || db.data.hardwareConfig.length === 0) {
+            db.data.hardwareConfig = [
+                { category: 'LAPTOP', prefix: 'LAP' },
+                { category: 'MONITOR', prefix: 'M' },
+                { category: 'CPU', prefix: 'C' },
+                { category: 'UPS', prefix: 'UPS' },
+                { category: 'HDD', prefix: 'HDD' },
+                { category: 'SERVER', prefix: 'SER' },
+                { category: 'AIO DESKTOP', prefix: 'AIOD' },
+                { category: 'LASER PRINTER', prefix: 'LP' }
+            ];
+            await db.write();
+        }
+        res.json(db.data.hardwareConfig);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch hardware config' });
+    }
+});
+
+app.post('/api/hardware/config', async (req, res) => {
+    try {
+        const { category, prefix } = req.body;
+        await db.read();
+        db.data.hardwareConfig = db.data.hardwareConfig || [];
+
+        if (db.data.hardwareConfig.find(c => c.category === category)) {
+            return res.status(400).json({ error: 'Category already exists' });
+        }
+
+        db.data.hardwareConfig.push({ category, prefix });
+        await db.write();
+        res.json({ message: 'Category Added' });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to add category' });
+    }
+});
+
+// --- Capacity Configuration (Per Item Name) ---
+const defaultCapacityConfig = [
+    { Item_Name: 'AIO DESKTOP', Capacity: 'Core i5' },
+    { Item_Name: 'CPU', Capacity: 'Core i3' },
+    { Item_Name: 'CPU', Capacity: 'Core i5' },
+    { Item_Name: 'CPU', Capacity: 'Ryzen 3' },
+    { Item_Name: 'CPU', Capacity: 'Ryzen 5' },
+    { Item_Name: 'LAPTOP', Capacity: 'Core i3' },
+    { Item_Name: 'LAPTOP', Capacity: 'Core i5' },
+    { Item_Name: 'LAPTOP', Capacity: 'Ryzen 5' },
+    { Item_Name: 'LAPTOP', Capacity: 'Ryzen 7' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'AIO-6020NV' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'CANON IR2925 IND 230' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'CANON MFP-1440I' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'ECOSYS 5021CDN' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'ECOSYS M5526CDW' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'ECOSYS P2040DW' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'HP PRO M405DW' },
+    { Item_Name: 'LASER PRINTER', Capacity: 'PRO MFP M329DW W1A24' },
+    { Item_Name: 'MONITOR', Capacity: '19.5 INCH' },
+    { Item_Name: 'MONITOR', Capacity: '21.5 INCH' },
+    { Item_Name: 'PROJECTOR', Capacity: 'EB-FH54' },
+    { Item_Name: 'UPS', Capacity: '10KVA' },
+    { Item_Name: 'UPS', Capacity: '1KVA' },
+    { Item_Name: 'UPS', Capacity: '600VA' },
+    { Item_Name: 'UPS', Capacity: '650VA' }
+];
+
+// GET all capacity configs
+app.get('/api/capacity/config', async (req, res) => {
+    try {
+        await db.read();
+        if (!db.data.capacityConfig || db.data.capacityConfig.length === 0) {
+            db.data.capacityConfig = [...defaultCapacityConfig];
+            await db.write();
+        }
+        res.json(db.data.capacityConfig);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch capacity config' });
+    }
+});
+
+// POST add a new capacity entry
+app.post('/api/capacity/config', async (req, res) => {
+    try {
+        const { Item_Name, Capacity } = req.body;
+        if (!Item_Name || !Capacity) {
+            return res.status(400).json({ error: 'Item Name and Capacity are required' });
+        }
+        await db.read();
+        db.data.capacityConfig = db.data.capacityConfig || [];
+
+        // Check duplicate
+        if (db.data.capacityConfig.find(c => c.Item_Name === Item_Name && c.Capacity === Capacity)) {
+            return res.status(400).json({ error: 'This capacity already exists for this item' });
+        }
+
+        db.data.capacityConfig.push({ Item_Name: Item_Name.trim(), Capacity: Capacity.trim() });
+        db.data.capacityConfig.sort((a, b) => a.Item_Name.localeCompare(b.Item_Name) || a.Capacity.localeCompare(b.Capacity));
+        await db.write();
+        res.json({ message: 'Capacity added' });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to add capacity' });
+    }
+});
+
+// PUT edit a capacity entry
+app.put('/api/capacity/config', async (req, res) => {
+    try {
+        const { Item_Name, oldCapacity, newCapacity } = req.body;
+        if (!Item_Name || !oldCapacity || !newCapacity) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+        await db.read();
+        db.data.capacityConfig = db.data.capacityConfig || [];
+
+        const idx = db.data.capacityConfig.findIndex(c => c.Item_Name === Item_Name && c.Capacity === oldCapacity);
+        if (idx === -1) {
+            return res.status(404).json({ error: 'Capacity entry not found' });
+        }
+        if (db.data.capacityConfig.find(c => c.Item_Name === Item_Name && c.Capacity === newCapacity)) {
+            return res.status(400).json({ error: 'New capacity already exists for this item' });
+        }
+
+        db.data.capacityConfig[idx].Capacity = newCapacity.trim();
+
+        // Propagate change to hardware items
+        let updatedCount = 0;
+        const hardware = db.data.hardware || [];
+        for (const hw of hardware) {
+            if (hw.Item_Name === Item_Name && hw.Capacity === oldCapacity) {
+                hw.Capacity = newCapacity.trim();
+                updatedCount++;
+            }
+        }
+
+        db.data.capacityConfig.sort((a, b) => a.Item_Name.localeCompare(b.Item_Name) || a.Capacity.localeCompare(b.Capacity));
+        await db.write();
+        res.json({ message: `Capacity renamed. ${updatedCount} hardware item(s) updated.`, updatedCount });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to update capacity' });
+    }
+});
+
+// DELETE a capacity entry
+app.delete('/api/capacity/config', async (req, res) => {
+    try {
+        const { Item_Name, Capacity } = req.body;
+        if (!Item_Name || !Capacity) {
+            return res.status(400).json({ error: 'Item Name and Capacity are required' });
+        }
+        await db.read();
+        db.data.capacityConfig = db.data.capacityConfig || [];
+
+        const initialLen = db.data.capacityConfig.length;
+        db.data.capacityConfig = db.data.capacityConfig.filter(c => !(c.Item_Name === Item_Name && c.Capacity === Capacity));
+
+        if (db.data.capacityConfig.length < initialLen) {
+            await db.write();
+            res.json({ message: 'Capacity deleted' });
+        } else {
+            res.status(404).json({ error: 'Capacity entry not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to delete capacity' });
+    }
+});
+
+// --- Make Config (Company/Brand Names) ---
+app.get('/api/make/config', async (req, res) => {
+    try {
+        await db.read();
+        const defaultMakes = ['HP', 'Dell', 'Lenovo', 'Acer', 'ASUS', 'Samsung', 'LG', 'Apple', 'Microsoft', 'Toshiba', 'Sony', 'BenQ', 'ViewSonic', 'APC', 'Epson', 'Canon', 'Brother', 'Cisco', 'D-Link', 'TP-Link', 'Seagate', 'Western Digital', 'Kingston', 'Crucial', 'Intel', 'AMD'];
+        const makes = db.data.makeConfig || defaultMakes;
+        res.json(makes);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch makes' });
+    }
+});
+
+app.post('/api/make/config', async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: 'Company name is required' });
+        }
+        await db.read();
+        db.data.makeConfig = db.data.makeConfig || ['HP', 'Dell', 'Lenovo', 'Acer', 'ASUS', 'Samsung', 'LG'];
+
+        if (db.data.makeConfig.includes(name.trim())) {
+            return res.status(400).json({ error: 'Company already exists' });
+        }
+
+        db.data.makeConfig.push(name.trim());
+        db.data.makeConfig.sort(); // Keep alphabetically sorted
+        await db.write();
+        res.json({ message: 'Company added', makes: db.data.makeConfig });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to add company' });
+    }
+});
+
+app.delete('/api/make/config/:name', async (req, res) => {
+    try {
+        const { name } = req.params;
+        await db.read();
+        db.data.makeConfig = db.data.makeConfig || [];
+
+        const index = db.data.makeConfig.indexOf(name);
+        if (index === -1) {
+            return res.status(404).json({ error: 'Company not found' });
+        }
+
+        db.data.makeConfig.splice(index, 1);
+        await db.write();
+        res.json({ message: 'Company deleted', makes: db.data.makeConfig });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to delete company' });
+    }
+});
+
+// --- Column Visibility Config ---
+app.get('/api/column-visibility/config', async (req, res) => {
+    try {
+        await db.read();
+        res.json(db.data.columnVisibility || {});
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch column visibility config' });
+    }
+});
+
+app.put('/api/column-visibility/config', async (req, res) => {
+    try {
+        const { category, hiddenColumns } = req.body;
+        if (!category) return res.status(400).json({ error: 'Category is required' });
+
+        await db.read();
+        db.data.columnVisibility = db.data.columnVisibility || {};
+        db.data.columnVisibility[category] = hiddenColumns || [];
+        await db.write();
+        res.json({ message: 'Column visibility updated', columnVisibility: db.data.columnVisibility });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to update column visibility' });
+    }
+});
+
+// 2. Hardware CRUD
+app.get('/api/hardware', async (req, res) => {
+    await db.read();
+    const { category } = req.query;
+    let data = db.data.hardware || [];
+    if (category) {
+        const catUpper = category.toUpperCase();
+        // Match by Category OR Item_Name (case-insensitive) to handle legacy data
+        data = data.filter(item => {
+            const itemCat = (item.Category || '').toUpperCase();
+            const itemName = (item.Item_Name || '').toUpperCase();
+            return itemCat === catUpper || itemName === catUpper;
+        });
+
+        // Auto-fix: correct Category field for items that only matched by Item_Name
+        let needsWrite = false;
+        data.forEach(item => {
+            if ((item.Category || '').toUpperCase() !== catUpper) {
+                // Find in original array and fix
+                const idx = db.data.hardware.findIndex(h => h.id === item.id);
+                if (idx !== -1) {
+                    db.data.hardware[idx].Category = catUpper;
+                    item.Category = catUpper;
+                    needsWrite = true;
+                }
+            }
+        });
+        if (needsWrite) {
+            db.write().catch(err => console.error('Auto-fix category write error:', err));
+        }
+    }
+    // Format date fields before sending
+    const formattedData = data.map(item => ({
+        ...item,
+        AMC_Upto: formatExcelDate(item.AMC_Upto),
+        Warranty_Upto: formatExcelDate(item.Warranty_Upto),
+        Issued_Date: formatExcelDate(item.Issued_Date)
+    }));
+    res.json(formattedData);
+});
+
+// Helper: Generate Next EDP Serial
+const generateEDPSerial = (hardwareList, prefix) => {
+    // Standard prefixes per user requirement
+    const standardPrefixes = {
+        'LAPTOP': 'LAP',
+        'MONITOR': 'M',
+        'CPU': 'C',
+        'UPS': 'UPS',
+        'HDD': 'HDD',
+        'SERVER': 'SER',
+        'AIO DESKTOP': 'AIOD',
+        'LASER PRINTER': 'LP'
+    };
+
+    // Use standard prefix if matches, otherwise use provided prefix
+    const effectivePrefix = standardPrefixes[prefix] || standardPrefixes[prefix.toUpperCase()] || prefix;
+
+    const regex = new RegExp(`^${effectivePrefix}(\\d+)$`);
+    let maxNum = 0;
+    hardwareList.forEach(item => {
+        if (item.EDP_Serial) {
+            const match = item.EDP_Serial.match(regex);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNum) maxNum = num;
+            }
+        }
+    });
+
+    let padding = 4;
+    // 3 digits for HDD, SER, AIOD, LP as implied by examples (HDD001)
+    if (['HDD', 'SER', 'AIOD', 'LP'].includes(effectivePrefix)) padding = 3;
+
+    const nextNum = maxNum + 1;
+    return `${effectivePrefix}${nextNum.toString().padStart(padding, '0')}`;
+};
+
+// GET next serial preview — lets frontend show the proposed serial for user confirmation
+app.get('/api/hardware/next-serial', async (req, res) => {
+    try {
+        const { category } = req.query;
+        if (!category) return res.status(400).json({ error: 'Category is required' });
+
+        await db.read();
+        db.data.hardware = db.data.hardware || [];
+        db.data.hardwareConfig = db.data.hardwareConfig || [];
+
+        const categoryUpper = category.toUpperCase();
+        const standardPrefixes = {
+            'LAPTOP': 'LAP', 'MONITOR': 'M', 'CPU': 'C', 'UPS': 'UPS',
+            'HDD': 'HDD', 'SERVER': 'SER', 'AIO DESKTOP': 'AIOD', 'LASER PRINTER': 'LP'
+        };
+
+        let prefix = standardPrefixes[categoryUpper] || 'ITEM';
+        if (!standardPrefixes[categoryUpper]) {
+            const config = db.data.hardwareConfig.find(c => c.category.toUpperCase() === categoryUpper);
+            if (config) prefix = config.prefix;
+        }
+
+        const proposedSerial = generateEDPSerial(db.data.hardware, prefix);
+        res.json({ proposedSerial, prefix });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to generate serial preview' });
+    }
+});
+
+app.post('/api/hardware', async (req, res) => {
+    try {
+        const items = Array.isArray(req.body) ? req.body : [req.body];
+        await db.read();
+        db.data.hardware = db.data.hardware || [];
+        db.data.hardwareConfig = db.data.hardwareConfig || [];
+
+        const newItems = [];
+
+        for (const item of items) {
+            let prefix = 'ITEM';
+            const categoryUpper = item.Category ? item.Category.toUpperCase() : '';
+
+            // 1. Check Standard Map first
+            const standardPrefixes = {
+                'LAPTOP': 'LAP',
+                'MONITOR': 'M',
+                'CPU': 'C',
+                'UPS': 'UPS',
+                'HDD': 'HDD',
+                'SERVER': 'SER',
+                'AIO DESKTOP': 'AIOD',
+                'LASER PRINTER': 'LP'
+            };
+
+            if (standardPrefixes[categoryUpper]) {
+                prefix = standardPrefixes[categoryUpper];
+            } else {
+                // 2. Fallback to Config
+                const config = db.data.hardwareConfig.find(c => c.category.toUpperCase() === categoryUpper);
+                if (config) prefix = config.prefix;
+            }
+
+            const allCurrent = [...db.data.hardware, ...newItems];
+
+            // If user provided a custom serial override, use it and auto-increment for subsequent items
+            let edpSerial;
+            if (item.EDP_Serial_Override) {
+                edpSerial = item.EDP_Serial_Override;
+                delete item.EDP_Serial_Override;
+            } else if (newItems.length > 0 && newItems[0].EDP_Serial) {
+                // Auto-increment from the first item's serial for subsequent items in the batch
+                const firstSerial = newItems[0].EDP_Serial;
+                const serialMatch = firstSerial.match(/^([A-Za-z]+)(\d+)$/);
+                if (serialMatch) {
+                    const serialPrefix = serialMatch[1];
+                    const serialNumStr = serialMatch[2];
+                    const nextNum = parseInt(serialNumStr, 10) + newItems.length;
+                    edpSerial = `${serialPrefix}${nextNum.toString().padStart(serialNumStr.length, '0')}`;
+                } else {
+                    edpSerial = generateEDPSerial(allCurrent, prefix);
+                }
+            } else {
+                edpSerial = generateEDPSerial(allCurrent, prefix);
+            }
+
+            const newItem = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                EDP_Serial: edpSerial,
+                Allocated_To: 'STOCK',
+                Issued_Date: '',
+                ...item
+            };
+            newItems.push(newItem);
+        }
+
+        db.data.hardware.push(...newItems);
+        await db.write();
+        res.json({ message: 'Hardware Added', generatedItems: newItems });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to add hardware' });
+    }
+});
+
+// Get Hardware Allocation History (MUST be before generic :id routes)
+app.get('/api/hardware/:id/history', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.read();
+        const history = (db.data.allocationHistory || []).filter(h => h.hardware_id === id);
+        console.log(`History request for hardware ID: ${id}, found ${history.length} records`);
+        res.json(history);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch history' });
+    }
+});
+
+app.put('/api/hardware/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        await db.read();
+        const index = db.data.hardware.findIndex(h => h.id === id);
+        if (index !== -1) {
+            db.data.hardware[index] = { ...db.data.hardware[index], ...updates };
+            await db.write();
+            res.json(db.data.hardware[index]);
+        } else {
+            res.status(404).json({ error: 'Item not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Update failed' });
+    }
+});
+
+app.delete('/api/hardware/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.read();
+        const initialLen = db.data.hardware.length;
+        db.data.hardware = db.data.hardware.filter(h => h.id !== id);
+        if (db.data.hardware.length < initialLen) {
+            await db.write();
+            res.json({ message: 'Deleted' });
+        } else {
+            res.status(404).json({ error: 'Not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Delete failed' });
+    }
+});
+
+// Bulk Delete Hardware
+app.post('/api/hardware/bulk-delete', async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids)) return res.status(400).json({ error: 'Invalid IDs' });
+        await db.read();
+        db.data.hardware = db.data.hardware.filter(h => !ids.includes(h.id));
+        await db.write();
+        res.json({ message: 'Items deleted successfully' });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Bulk delete failed' });
+    }
+});
+
+// Bulk Update Hardware (AMC & AMC Upto)
+app.post('/api/hardware/bulk-update', async (req, res) => {
+    try {
+        const { ids, updates } = req.body;
+        if (!Array.isArray(ids)) return res.status(400).json({ error: 'Invalid IDs' });
+        await db.read();
+        db.data.hardware = db.data.hardware.map(h => {
+            if (ids.includes(h.id)) {
+                return { ...h, ...updates };
+            }
+            return h;
+        });
+        await db.write();
+        res.json({ message: 'Items updated successfully' });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Bulk update failed' });
+    }
+});
+
+// Wipe all hardware data (for fresh start)
+app.delete('/api/hardware/wipe-all', async (req, res) => {
+    try {
+        await db.read();
+        const count = (db.data.hardware || []).length;
+        db.data.hardware = [];
+        db.data.allocationHistory = [];
+        await db.write();
+        res.json({ message: `Cleared ${count} hardware items and allocation history.` });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to wipe hardware data' });
+    }
+});
+
+// Hardware Excel Upload (Native + Fallback) - v1.2.0
+app.post('/api/hardware/upload', async (req, res) => {
+    try {
+        let filePath;
+
+        if (req.body.processOnly) {
+            // File already saved via IPC - read from uploads dir
+            filePath = path.join(uploadsDir, req.body.fileName);
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ error: 'File not found on server' });
+            }
+        } else if (req.body.fileData) {
+            // Base64 upload fallback
+            filePath = path.join(uploadsDir, `hardware_${Date.now()}.xlsx`);
+            const buffer = Buffer.from(req.body.fileData.split(',')[1], 'base64');
+            fs.writeFileSync(filePath, buffer);
+        } else {
+            return res.status(400).json({ error: 'No file data provided' });
+        }
+
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        await db.read();
+        db.data.hardware = db.data.hardware || [];
+        db.data.hardwareConfig = db.data.hardwareConfig || [];
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        const standardPrefixes = {
+            'LAPTOP': 'LAP', 'MONITOR': 'M', 'CPU': 'C', 'UPS': 'UPS',
+            'HDD': 'HDD', 'SERVER': 'SER', 'AIO DESKTOP': 'AIOD', 'LASER PRINTER': 'LP'
+        };
+
+        const defaultCategory = req.body.defaultCategory || '';
+
+
+
+        for (const row of data) {
+            const category = row['Category'] || row['category'] || defaultCategory || 'UNKNOWN';
+            const categoryUpper = category.toUpperCase();
+            let prefix = standardPrefixes[categoryUpper] || 'ITEM';
+
+            const existingEDP = row['EDP Serial'] || row['EDP_Serial'] || row['EDP serial'] || row['edp_serial'] || '';
+            let edpSerial = existingEDP;
+
+            if (!edpSerial) {
+                const regex = new RegExp(`^${prefix}(\\d+)$`);
+                let maxNum = 0;
+                db.data.hardware.forEach(item => {
+                    if (item.EDP_Serial) {
+                        const match = item.EDP_Serial.match(regex);
+                        if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+                    }
+                });
+                const padding = ['HDD', 'SER', 'AIOD', 'LP'].includes(prefix) ? 3 : 4;
+                edpSerial = `${prefix}${(maxNum + 1 + addedCount).toString().padStart(padding, '0')}`;
+            }
+
+            const itemData = {
+                Category: categoryUpper,
+                Item_Name: row['Item Name'] || row['Item_Name'] || categoryUpper,
+                EDP_Serial: String(edpSerial),
+                Make: row['Make'] || '',
+                Capacity: row['Capacity'] || '',
+                RAM: row['RAM'] || '',
+                OS: row['OS'] || '',
+                Office: row['Office'] || '',
+                Speed: row['Speed'] || '',
+                IP: row['IP'] || '',
+                MAC: row['MAC'] || '',
+                Company_Serial: row['Company Serial'] || row['Company_Serial'] || '',
+                Bill_Number: row['Bill Number'] || row['Bill_Number'] || '',
+                Cost: row['Cost (Rs.)'] || row['Cost'] || '0',
+                AMC: row['AMC'] || 'No',
+                AMC_Upto: formatExcelDate(row['AMC Upto'] || row['AMC_Upto']),
+                Warranty_Upto: formatExcelDate(row['Warranty Upto'] || row['Warranty_Upto']),
+                Additional_Item: row['Additional Item'] || row['Additional_Item'] || '',
+                Status: row['Status'] || 'Working',
+                Remarks: row['Remarks'] || '',
+                Allocated_To: row['Allocated To'] || row['Allocated_To'] || 'STOCK',
+                Issued_Date: formatExcelDate(row['Issued Date'] || row['Issued_Date'])
+            };
+
+            // Upsert: update if exists by EDP_Serial, insert if new
+            const existingIndex = db.data.hardware.findIndex(h => h.EDP_Serial === String(edpSerial));
+            if (existingIndex !== -1) {
+                const existing = db.data.hardware[existingIndex];
+                Object.assign(db.data.hardware[existingIndex], { ...itemData, id: existing.id });
+                updatedCount++;
+            } else {
+                db.data.hardware.push({
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    ...itemData
+                });
+                addedCount++;
+            }
+        }
+
+        await db.write();
+        res.json({ message: `Bulk upload complete. Added ${addedCount} new, Updated ${updatedCount} existing items.` });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to process Excel file' });
+    }
+});
+
+// Hardware Allocation Update
+app.post('/api/hardware/allocate', async (req, res) => {
+    try {
+        const { id, PIN, Issued_Date, changedBy } = req.body;
+        await db.read();
+        const index = db.data.hardware.findIndex(h => h.id === id);
+        if (index !== -1) {
+            const hardware = db.data.hardware[index];
+            const previousAllocation = hardware.Allocated_To;
+
+            // Update current allocation
+            db.data.hardware[index].Allocated_To = PIN || 'STOCK';
+            db.data.hardware[index].Issued_Date = Issued_Date || '';
+            if (req.body.Issued_Location !== undefined) {
+                db.data.hardware[index].Issued_Location = req.body.Issued_Location || '';
+            }
+
+            // Log to history
+            db.data.allocationHistory = db.data.allocationHistory || [];
+            db.data.allocationHistory.push({
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                hardware_id: id,
+                EDP_Serial: hardware.EDP_Serial,
+                Item_Name: hardware.Item_Name,
+                from_PIN: previousAllocation,
+                to_PIN: PIN || 'STOCK',
+                issued_date: Issued_Date || '',
+                changed_at: new Date().toISOString(),
+                changed_by: changedBy || 'System' // Add changed_by field
+            });
+
+            // Cap history to 5 records for this hardware item
+            const hardwareHistory = db.data.allocationHistory.filter(h => h.hardware_id === id);
+            if (hardwareHistory.length > 5) {
+                const numToRemove = hardwareHistory.length - 5;
+                const idsToRemove = hardwareHistory
+                    .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at))
+                    .slice(0, numToRemove)
+                    .map(h => h.id);
+                db.data.allocationHistory = db.data.allocationHistory.filter(h => !idsToRemove.includes(h.id));
+            }
+
+            await db.write();
+            res.json({ message: 'Allocation updated', item: db.data.hardware[index] });
+        } else {
+            res.status(404).json({ error: 'Item not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Allocation failed' });
+    }
+});
+
+
+
+// Hardware Excel Download
+app.get('/api/hardware/download', async (req, res) => {
+    try {
+        await db.read();
+        const { category } = req.query;
+        const invoices = db.data.invoices || [];
+        let data = db.data.hardware || [];
+
+        // Filter by category if specified
+        if (category) data = data.filter(h => h.Category === category);
+
+        // Map to Excel-friendly format with readable column headers
+        const excelData = data.map(item => {
+            const invoice = invoices.find(inv => inv.Bill_Number === item.Bill_Number);
+
+            return {
+                'Category': item.Category,
+                'Item Name': item.Item_Name,
+                'EDP Serial': item.EDP_Serial,
+                'Make': item.Make || '',
+                'Capacity': item.Capacity || '',
+                'RAM': item.RAM || '',
+                'OS': item.OS || '',
+                'Office': item.Office || '',
+                'Speed': item.Speed || '',
+                'IP': item.IP || '',
+                'MAC': item.MAC || '',
+                'Company Serial': item.Company_Serial || '',
+                'Bill Number': item.Bill_Number || '',
+                'Purchase Date': invoice?.Date || '',
+                'Cost (Rs.)': item.Cost || '',
+                'AMC': item.AMC || 'No',
+                'AMC Upto': item.AMC === 'Yes' ? item.AMC_Upto || '' : '',
+                'Warranty Upto': item.Warranty_Upto || '',
+                'Additional Item': item.Additional_Item || '',
+                'Status': item.Status || 'Working',
+                'Remarks': item.Remarks || '',
+                'Allocated To': item.Allocated_To || 'STOCK',
+                'Issued Date': item.Issued_Date || ''
+            };
+        });
+
+        const worksheet = xlsx.utils.json_to_sheet(excelData);
+        const workbook = xlsx.utils.book_new();
+        const sheetName = category || 'Hardware';
+        xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        const filename = category ? `${category}_hardware.xlsx` : 'all_hardware.xlsx';
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Hardware Excel Download (Buffer for Native Save) - v1.2.0
+app.get('/api/hardware/download-buffer', async (req, res) => {
+    try {
+        await db.read();
+        const { category } = req.query;
+        const invoices = db.data.invoices || [];
+        const employees = db.data.employees || [];
+        let data = db.data.hardware || [];
+
+        if (category) data = data.filter(h => h.Category === category);
+
+        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
+        const excelData = data.map(item => {
+            const invoice = invoices.find(inv => inv.Bill_Number === item.Bill_Number);
+            const emp = employees.find(e => normalize(e.PIN) === normalize(item.Allocated_To));
+            return {
+                'Category': item.Category,
+                'Item Name': item.Item_Name,
+                'EDP Serial': item.EDP_Serial,
+                'Make': item.Make || '',
+                'Capacity': item.Capacity || '',
+                'RAM': item.RAM || '',
+                'OS': item.OS || '',
+                'Office': item.Office || '',
+                'Speed': item.Speed || '',
+                'IP': item.IP || '',
+                'MAC': item.MAC || '',
+                'Company Serial': item.Company_Serial || '',
+                'Bill Number': item.Bill_Number || '',
+                'Purchase Date': invoice?.Date || '',
+                'Cost (Rs.)': item.Cost || '',
+                'AMC': item.AMC || 'No',
+                'AMC Upto': item.AMC === 'Yes' ? item.AMC_Upto || '' : '',
+                'Warranty Upto': item.Warranty_Upto || '',
+                'Additional Item': item.Additional_Item || '',
+                'Status': item.Status || 'Working',
+                'Remarks': item.Remarks || '',
+                'Allocated To (PIN)': item.Allocated_To || 'STOCK',
+                'Employee Name': emp?.Name || (item.Allocated_To === 'STOCK' || !item.Allocated_To ? 'STOCK' : ''),
+                'Post': emp?.Present_Post || '',
+                'Wing': emp?.Wing || '',
+                'Issued Date': item.Issued_Date || ''
+            };
+        });
+
+        const worksheet = xlsx.utils.json_to_sheet(excelData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, category || 'Hardware');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.json({ buffer: Array.from(buffer) });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// AMC Excel Download
+app.post('/api/amc/download-buffer', async (req, res) => {
+    try {
+        const { data } = req.body;
+        const worksheet = xlsx.utils.json_to_sheet(data);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'AMC');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        res.json({ buffer: Array.from(buffer) });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+app.post('/api/amc/download', async (req, res) => {
+    try {
+        const { data } = req.body;
+        const worksheet = xlsx.utils.json_to_sheet(data);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'AMC');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader('Content-Disposition', 'attachment; filename="amc.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Allocation Excel Download (with employee details)
+app.get('/api/allocation/download', async (req, res) => {
+    try {
+        await db.read();
+        const hardware = db.data.hardware || [];
+        const employees = db.data.employees || [];
+        const invoices = db.data.invoices || [];
+
+        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
+        // Helper to convert YYYY-MM-DD to DD-MM-YYYY
+        const formatDateDDMMYYYY = (dateStr) => {
+            if (!dateStr) return '';
+            const parts = String(dateStr).split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        };
+
+        // Create enriched data with employee and invoice details
+        const enrichedData = hardware.map(h => {
+            const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+            const inv = invoices.find(i => i.Bill_Number === h.Bill_Number);
+
+            return {
+                'Item Name': h.Item_Name,
+                'EDP Serial': h.EDP_Serial,
+                'PIN': h.Allocated_To,
+                'Employee Name': emp?.Name || (h.Allocated_To === 'STOCK' ? 'STOCK' : ''),
+                'Present Post': emp?.Present_Post || '',
+                'Wing': emp?.Wing || '',
+                'Issued Date': formatDateDDMMYYYY(h.Issued_Date),
+                'Issued Location': h.Issued_Location || '',
+                'Make': h.Make,
+                'Company Serial': h.Company_Serial,
+                'Bill Number': h.Bill_Number,
+                'Purchased Date': formatDateDDMMYYYY(inv?.Date),
+                'Cost': h.Cost,
+                'Status': h.Status || 'Working'
+            };
+        });
+
+        const worksheet = xlsx.utils.json_to_sheet(enrichedData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Allocation');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="hardware_allocation.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Allocation Download Buffer (for Native Save) - v1.2.0
+app.get('/api/allocation/download-buffer', async (req, res) => {
+    try {
+        await db.read();
+        const hardware = db.data.hardware || [];
+        const employees = db.data.employees || [];
+        const invoices = db.data.invoices || [];
+
+        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
+        const formatDateDDMMYYYY = (dateStr) => {
+            if (!dateStr) return '';
+            const parts = String(dateStr).split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        };
+
+        const enrichedData = hardware.map(h => {
+            const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+            const inv = invoices.find(i => i.Bill_Number === h.Bill_Number);
+            return {
+                'Item Name': h.Item_Name,
+                'EDP Serial': h.EDP_Serial,
+                'PIN': h.Allocated_To,
+                'Employee Name': emp?.Name || (h.Allocated_To === 'STOCK' ? 'STOCK' : ''),
+                'Present Post': emp?.Present_Post || '',
+                'Wing': emp?.Wing || '',
+                'Issued Date': formatDateDDMMYYYY(h.Issued_Date),
+                'Issued Location': h.Issued_Location || '',
+                'Make': h.Make,
+                'Company Serial': h.Company_Serial,
+                'Bill Number': h.Bill_Number,
+                'Purchased Date': formatDateDDMMYYYY(inv?.Date),
+                'Cost': h.Cost,
+                'Status': h.Status || 'Working'
+            };
+        });
+
+        const worksheet = xlsx.utils.json_to_sheet(enrichedData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Allocation');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        res.json({ buffer: Array.from(buffer) });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Allocation Excel Upload (Base64)
+app.post('/api/allocation/upload', async (req, res) => {
+    try {
+        const { fileData, changedBy } = req.body;
+        if (!fileData) return res.status(400).json({ error: 'No file uploaded' });
+
+        const buffer = Buffer.from(fileData.split(',')[1], 'base64');
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+        await db.read();
+        let updated = 0;
+        let skipped = 0;
+
+        for (const row of data) {
+            const edpSerial = row['EDP Serial'];
+            const newPIN = row['PIN'];
+            const issuedDate = formatExcelDate(row['Issued Date']);
+
+            if (!edpSerial) { skipped++; continue; }
+
+            const index = db.data.hardware.findIndex(h => h.EDP_Serial === edpSerial);
+            if (index !== -1) {
+                const hardware = db.data.hardware[index];
+                const previousAllocation = hardware.Allocated_To;
+
+                // Update allocation
+                db.data.hardware[index].Allocated_To = newPIN || 'STOCK';
+                db.data.hardware[index].Issued_Date = issuedDate || '';
+
+                // Log to history
+                db.data.allocationHistory = db.data.allocationHistory || [];
+                db.data.allocationHistory.push({
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    hardware_id: hardware.id,
+                    EDP_Serial: hardware.EDP_Serial,
+                    Item_Name: hardware.Item_Name,
+                    from_PIN: previousAllocation,
+                    to_PIN: newPIN || 'STOCK',
+                    issued_date: issuedDate || '',
+                    changed_at: new Date().toISOString(),
+                    changed_by: changedBy || 'System'
+                });
+
+                // Cap history to 5 records for this hardware item
+                const hardwareHistory = db.data.allocationHistory.filter(h => h.hardware_id === hardware.id);
+                if (hardwareHistory.length > 5) {
+                    const numToRemove = hardwareHistory.length - 5;
+                    const idsToRemove = hardwareHistory
+                        .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at))
+                        .slice(0, numToRemove)
+                        .map(h => h.id);
+                    db.data.allocationHistory = db.data.allocationHistory.filter(h => !idsToRemove.includes(h.id));
+                }
+
+                updated++;
+            } else {
+                skipped++;
+            }
+        }
+
+        await db.write();
+        res.json({ message: `Bulk upload complete. Updated ${updated}, Skipped ${skipped}.` });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Bulk upload failed' });
+    }
+});
+
+
+// --- Employees Module ---
+
+// 1. Employee Configuration (Dropdown Lists)
+app.get('/api/employees/config', async (req, res) => {
+    await db.read();
+    res.json(db.data.employeeConfig || {});
+});
+
+app.post('/api/employees/config', async (req, res) => {
+    try {
+        const { type, values } = req.body; // type: posts | sections | wings | offices
+        const allowedTypes = ['posts', 'sections', 'wings', 'offices'];
+        if (!allowedTypes.includes(type)) {
+            return res.status(400).json({ error: 'Invalid config type' });
+        }
+        await db.read();
+        db.data.employeeConfig = db.data.employeeConfig || {};
+        db.data.employeeConfig[type] = values;
+        await db.write();
+        res.json({ message: 'Configuration updated' });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to update config' });
+    }
+});
+
+// Rename a config value and propagate to all employees
+app.put('/api/employees/config/rename', async (req, res) => {
+    try {
+        const { type, oldValue, newValue } = req.body;
+        const allowedTypes = ['posts', 'sections', 'wings', 'offices'];
+        if (!allowedTypes.includes(type)) {
+            return res.status(400).json({ error: 'Invalid config type' });
+        }
+        if (!oldValue || !newValue || oldValue === newValue) {
+            return res.status(400).json({ error: 'Invalid rename values' });
+        }
+
+        await db.read();
+        db.data.employeeConfig = db.data.employeeConfig || {};
+
+        // Rename in config list
+        const items = db.data.employeeConfig[type] || [];
+        const idx = items.indexOf(oldValue);
+        if (idx === -1) {
+            return res.status(404).json({ error: 'Value not found in config' });
+        }
+        if (items.includes(newValue)) {
+            return res.status(400).json({ error: 'New value already exists' });
+        }
+        items[idx] = newValue;
+        db.data.employeeConfig[type] = items;
+
+        // Map config type to employee field name
+        const fieldMap = {
+            posts: 'Present_Post',
+            sections: 'Section',
+            wings: 'Wing',
+            offices: 'Office'
+        };
+        const field = fieldMap[type];
+
+        // Propagate rename to all employees
+        let updatedCount = 0;
+        const employees = db.data.employees || [];
+        for (const emp of employees) {
+            if (emp[field] === oldValue) {
+                emp[field] = newValue;
+                updatedCount++;
+            }
+        }
+
+        await db.write();
+        res.json({ message: `Renamed "${oldValue}" to "${newValue}". ${updatedCount} employee(s) updated.`, updatedCount });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to rename config value' });
+    }
+});
+
+// 2. Employees CRUD
+app.get('/api/employees', async (req, res) => {
+    await db.read();
+    const employees = db.data.employees || [];
+
+
+
+    // Normalize field names for consistent frontend display
+    const normalizedEmployees = employees.map(emp => ({
+        id: emp.id,
+        PIN: emp.PIN || emp['PIN'] || '',
+        Name: emp.Name || emp['Name'] || '',
+        Present_Post: emp.Present_Post || emp['Present Post'] || emp['PresentPost'] || emp['Post'] || '',
+        Section: emp.Section || emp['Section'] || '',
+        Wing: emp.Wing || emp['Wing'] || '',
+        Office: emp.Office || emp['Office'] || '',
+        Email: emp.Email || emp['Email'] || '',
+        Mobile: emp.Mobile || emp['Mobile'] || emp['Phone'] || '',
+        Hqr_Field: emp.Hqr_Field || emp['Hqr_Field'] || emp['Hqr/Field'] || emp['HqrField'] || emp['Hqr Field'] || '',
+        DOB: formatExcelDate(emp.DOB || emp['DOB'] || emp['Date of Birth']),
+        Retirement_Date: formatExcelDate(emp.Retirement_Date || emp['Retirement_Date'] || emp['Retirement Date'] || emp['Retirement'])
+    }));
+
+    res.json(normalizedEmployees);
+});
+
+app.post('/api/employees', async (req, res) => {
+    try {
+        const employee = req.body;
+        await db.read();
+        db.data.employees = db.data.employees || [];
+
+        // Check unique PIN
+        if (db.data.employees.find(e => e.PIN === employee.PIN)) {
+            return res.status(400).json({ error: 'Employee with this PIN already exists' });
+        }
+
+        db.data.employees.push({
+            id: Date.now().toString(),
+            ...employee
+        });
+        await db.write();
+        res.status(201).json({ message: 'Employee added successfully', employee });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to add employee' });
+    }
+});
+
+app.put('/api/employees/:pin', async (req, res) => {
+    try {
+        const { pin } = req.params;
+        const updates = req.body;
+        await db.read();
+        const index = db.data.employees.findIndex(e => String(e.PIN) === String(pin) || String(e.id) === String(pin));
+        if (index !== -1) {
+            db.data.employees[index] = { ...db.data.employees[index], ...updates };
+            await db.write();
+            res.json(db.data.employees[index]);
+        } else {
+            res.status(404).json({ error: 'Employee not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Update failed' });
+    }
+});
+
+app.delete('/api/employees/:pin', async (req, res) => {
+    try {
+        const { pin } = req.params;
+        await db.read();
+        const initialLen = db.data.employees.length;
+        // Match by either ID or PIN using String comparison
+        db.data.employees = db.data.employees.filter(e =>
+            String(e.id) !== String(pin) && String(e.PIN) !== String(pin)
+        );
+        if (db.data.employees.length < initialLen) {
+            await db.write();
+            res.json({ message: 'Employee deleted' });
+        } else {
+            res.status(404).json({ error: 'Employee not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Delete failed' });
+    }
+});
+
+// 3. Employee Excel Bulk
+app.post('/api/employees/upload', memoryUpload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+        await db.read();
+        db.data.employees = db.data.employees || [];
+        let added = 0;
+        let updated = 0;
+
+        for (const row of data) {
+            const normalizedRow = {
+                PIN: row.PIN || row['PIN'] || '',
+                Name: row.Name || row['Name'] || '',
+                Present_Post: row.Present_Post || row['Present Post'] || row['PresentPost'] || '',
+                Wing: row.Wing || row['Wing'] || '',
+                Office: row.Office || row['Office'] || '',
+                Email: row.Email || row['Email'] || '',
+                Mobile: row.Mobile || row['Mobile'] || row['Phone'] || '',
+                Hqr_Field: row.Hqr_Field || row['Hqr_Field'] || row['Hqr/Field'] || row['HqrField'] || row['Hqr Field'] || '',
+                DOB: row.DOB || row['DOB'] || row['Date of Birth'] || '',
+                Retirement_Date: row.Retirement_Date || row['Retirement_Date'] || row['Retirement Date'] || row['Retirement'] || ''
+            };
+
+            if (!normalizedRow.PIN || !normalizedRow.Name) { continue; }
+
+            // Upsert: update if exists by PIN, insert if new
+            const existingIndex = db.data.employees.findIndex(e => String(e.PIN) === String(normalizedRow.PIN));
+            if (existingIndex !== -1) {
+                const existing = db.data.employees[existingIndex];
+                Object.assign(db.data.employees[existingIndex], { ...normalizedRow, id: existing.id });
+                updated++;
+            } else {
+                db.data.employees.push({ id: Date.now().toString() + added, ...normalizedRow });
+                added++;
+            }
+        }
+        await db.write();
+        res.json({ message: `Bulk upload complete. Added ${added} new, Updated ${updated} existing employees.` });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Bulk upload failed' });
+    }
+});
+
+app.get('/api/employees/download', async (req, res) => {
+    try {
+        await db.read();
+        const rawData = db.data.employees || [];
+        
+        // Helper to convert dates to DD-MM-YYYY text so Excel does not show whole numbers
+        const formatForExcel = (dateStr) => {
+            if (!dateStr) return '';
+            const num = Number(dateStr);
+            if (!isNaN(num) && num > 10000 && num < 90000) {
+                // If it's an Excel serial date, convert to DD-MM-YYYY
+                const date = new Date(Math.round((num - 25569) * 86400 * 1000));
+                return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+            }
+            // If it's YYYY-MM-DD string
+            const parts = String(dateStr).split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        };
+
+        // Exclude the 'Section' field from downloaded JSON
+        const data = rawData.map(emp => {
+            const { Section, ...rest } = emp;
+            if (rest.DOB) rest.DOB = formatForExcel(rest.DOB);
+            if (rest.Retirement_Date) rest.Retirement_Date = formatForExcel(rest.Retirement_Date);
+            if (rest['Date of Birth']) rest['Date of Birth'] = formatForExcel(rest['Date of Birth']);
+            if (rest['Retirement Date']) rest['Retirement Date'] = formatForExcel(rest['Retirement Date']);
+            if (rest['Retirement']) rest['Retirement'] = formatForExcel(rest['Retirement']);
+            return rest;
+        });
+        const worksheet = xlsx.utils.json_to_sheet(data);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Employees');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        res.setHeader('Content-Disposition', 'attachment; filename="employees.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+
+// --- E-Waste Module ---
+
+// Get all E-Waste years
+app.get('/api/ewaste/years', async (req, res) => {
+    try {
+        await db.read();
+        res.json(db.data.ewasteYears || []);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch years' });
+    }
+});
+
+// Create new E-Waste year
+app.post('/api/ewaste/years', async (req, res) => {
+    try {
+        const { year } = req.body;
+        await db.read();
+        db.data.ewasteYears = db.data.ewasteYears || [];
+
+        if (db.data.ewasteYears.find(y => y.year === year)) {
+            return res.status(400).json({ error: 'E-Waste year already exists' });
+        }
+
+        const newYear = {
+            year,
+            created_at: new Date().toISOString(),
+            isCompleted: false,
+            completionDoc: '',
+            completedAt: ''
+        };
+
+        db.data.ewasteYears.push(newYear);
+        await db.write();
+        res.status(201).json({ message: 'E-Waste year created', year: newYear });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to create year' });
+    }
+});
+
+// Get specific year details
+app.get('/api/ewaste/years/:year', async (req, res) => {
+    try {
+        const { year } = req.params;
+        await db.read();
+        const yearData = db.data.ewasteYears?.find(y => y.year === year);
+        if (yearData) {
+            res.json(yearData);
+        } else {
+            res.status(404).json({ error: 'Year not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch year' });
+    }
+});
+
+// Mark year as completed
+app.post('/api/ewaste/years/:year/complete', upload.single('document'), async (req, res) => {
+    try {
+        const { year } = req.params;
+        await db.read();
+
+        const yearIndex = db.data.ewasteYears?.findIndex(y => y.year === year);
+        if (yearIndex === -1) {
+            return res.status(404).json({ error: 'Year not found' });
+        }
+
+        db.data.ewasteYears[yearIndex].isCompleted = true;
+        db.data.ewasteYears[yearIndex].completedAt = new Date().toISOString();
+        if (req.file) {
+            db.data.ewasteYears[yearIndex].completionDoc = req.file.filename; // Store the filename
+        }
+
+        const ewasteItems = (db.data.ewasteItems || []).filter(item => item.year === year);
+        const hardwareIdsToRemove = ewasteItems.map(item => item.hardware_id);
+
+        db.data.hardware = (db.data.hardware || []).filter(h => !hardwareIdsToRemove.includes(h.id));
+
+        await db.write();
+        res.json({ message: 'E-Waste year marked as completed and hardware removed' });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to complete year' });
+    }
+});
+
+// Download E-Waste completion document
+app.get('/api/ewaste/years/:year/document', async (req, res) => {
+    try {
+        const { year } = req.params;
+        await db.read();
+
+        const yearData = db.data.ewasteYears?.find(y => y.year === year);
+        if (!yearData || !yearData.completionDoc) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const filePath = path.join(uploadsDir, yearData.completionDoc);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'File not found on server' });
+        }
+
+        res.download(filePath);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to download document' });
+    }
+});
+
+// Delete E-Waste year
+app.delete('/api/ewaste/years/:year', async (req, res) => {
+    try {
+        const { year } = req.params;
+        await db.read();
+
+        const yearIndex = db.data.ewasteYears?.findIndex(y => y.year === year);
+        if (yearIndex === -1) {
+            return res.status(404).json({ error: 'Year not found' });
+        }
+
+        // Delete associated items
+        db.data.ewasteItems = (db.data.ewasteItems || []).filter(item => item.year !== year);
+
+        // Delete the year
+        db.data.ewasteYears.splice(yearIndex, 1);
+
+        await db.write();
+        res.json({ message: 'E-Waste year deleted successfully' });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to delete year' });
+    }
+});
+
+// Get items for specific year
+app.get('/api/ewaste/:year/items', async (req, res) => {
+    try {
+        const { year } = req.params;
+        await db.read();
+        const items = (db.data.ewasteItems || []).filter(item => item.year === year);
+        res.json(items);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch items' });
+    }
+});
+
+// Add hardware to E-Waste
+app.post('/api/ewaste/:year/items', async (req, res) => {
+    try {
+        const { year } = req.params;
+        const { hardware_ids } = req.body;
+
+        await db.read();
+        db.data.ewasteItems = db.data.ewasteItems || [];
+
+        const invoices = db.data.invoices || [];
+        const addedItems = [];
+
+        for (const hwId of hardware_ids) {
+            const hardware = db.data.hardware?.find(h => h.id === hwId);
+            if (hardware) {
+                const invoice = invoices.find(inv => inv.Bill_Number === hardware.Bill_Number);
+
+                const ewasteItem = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    year,
+                    hardware_id: hardware.id,
+                    ...hardware,
+                    date_of_purchase: invoice?.Date || '',
+                    added_at: new Date().toISOString()
+                };
+
+                db.data.ewasteItems.push(ewasteItem);
+                addedItems.push(ewasteItem);
+            }
+        }
+
+        await db.write();
+        res.json({ message: `${addedItems.length} items added to E-Waste`, items: addedItems });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to add items' });
+    }
+});
+
+// Remove item from E-Waste
+app.delete('/api/ewaste/:year/items/:id', async (req, res) => {
+    try {
+        const { year, id } = req.params;
+        await db.read();
+
+        const initialLen = db.data.ewasteItems?.length || 0;
+        db.data.ewasteItems = (db.data.ewasteItems || []).filter(item => !(item.id === id && item.year === year));
+
+        if (db.data.ewasteItems.length < initialLen) {
+            await db.write();
+            res.json({ message: 'Item removed from E-Waste' });
+        } else {
+            res.status(404).json({ error: 'Item not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to remove item' });
+    }
+});
+
+// Get 6+ year old hardware suggestions
+app.get('/api/ewaste/suggestions', async (req, res) => {
+    try {
+        await db.read();
+        const hardware = db.data.hardware || [];
+        const invoices = db.data.invoices || [];
+        const ewasteItems = db.data.ewasteItems || [];
+
+        const ewasteHardwareIds = ewasteItems.map(item => item.hardware_id);
+
+        const suggestions = [];
+        const sixYearsAgo = new Date();
+        sixYearsAgo.setFullYear(sixYearsAgo.getFullYear() - 6);
+
+        for (const hw of hardware) {
+            if (ewasteHardwareIds.includes(hw.id)) continue;
+
+            const invoice = invoices.find(inv => inv.Bill_Number === hw.Bill_Number);
+            if (invoice && invoice.Date) {
+                const purchaseDate = new Date(invoice.Date);
+                if (purchaseDate <= sixYearsAgo) {
+                    suggestions.push({
+                        ...hw,
+                        date_of_purchase: invoice.Date
+                    });
+                }
+            }
+        }
+
+        res.json(suggestions);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to get suggestions' });
+    }
+});
+
+// Dashboard statistics
+app.get('/api/ewaste/dashboard', async (req, res) => {
+    try {
+        await db.read();
+        const years = db.data.ewasteYears || [];
+        const items = db.data.ewasteItems || [];
+
+        const dashboard = years.map(year => {
+            const yearItems = items.filter(item => item.year === year.year);
+            return {
+                ...year,
+                itemCount: yearItems.length
+            };
+        });
+
+        res.json(dashboard);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch dashboard' });
+    }
+});
+
+// Category breakdown for specific year
+app.get('/api/ewaste/:year/breakdown', async (req, res) => {
+    try {
+        const { year } = req.params;
+        await db.read();
+        const items = (db.data.ewasteItems || []).filter(item => item.year === year);
+
+        const breakdown = {};
+        items.forEach(item => {
+            const category = item.Category || 'Unknown';
+            breakdown[category] = (breakdown[category] || 0) + 1;
+        });
+
+        res.json(breakdown);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to get breakdown' });
+    }
+});
+
+// Download E-Waste Excel
+app.get('/api/ewaste/:year/download', async (req, res) => {
+    try {
+        const { year } = req.params;
+        await db.read();
+        const items = (db.data.ewasteItems || []).filter(item => item.year === year);
+
+        const exportData = items.map(item => ({
+            'Item Name': item.Item_Name,
+            'EDP Serial': item.EDP_Serial,
+            'Date of Purchase': item.date_of_purchase,
+            'Bill Number': item.Bill_Number,
+            'Cost': item.Cost,
+            'Make': item.Make,
+            'Capacity': item.Capacity,
+            'RAM': item.RAM,
+            'OS': item.OS,
+            'Office': item.Office,
+            'Speed': item.Speed,
+            'IP': item.IP,
+            'MAC': item.MAC,
+            'Company Serial': item.Company_Serial,
+            'Additional Items': item.Additional_Item,
+            'Status': item.Status,
+            'AMC': item.AMC,
+            'AMC Upto': item.AMC_Upto,
+            'Remarks': item.Remarks
+        }));
+
+        const headers = [
+            'Item Name', 'EDP Serial', 'Date of Purchase', 'Bill Number', 'Cost',
+            'Make', 'Capacity', 'RAM', 'OS', 'Office', 'Speed', 'IP', 'MAC',
+            'Company Serial', 'Additional Items', 'Status', 'AMC', 'AMC Upto', 'Remarks'
+        ];
+
+        let worksheet;
+        if (exportData.length > 0) {
+            worksheet = xlsx.utils.json_to_sheet(exportData, { header: headers });
+        } else {
+            // Empty data — create sheet with just headers
+            worksheet = xlsx.utils.aoa_to_sheet([headers]);
+        }
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, `E-Waste ${year}`);
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', `attachment; filename="ewaste_${year}.xlsx"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Upload E-Waste Excel (Native + Base64 Fallback)
+app.post('/api/ewaste/:year/upload', async (req, res) => {
+    try {
+        const { year } = req.params;
+        let filePath;
+
+        if (req.body.processOnly) {
+            // File already saved via IPC - read from uploads dir
+            filePath = path.join(uploadsDir, req.body.fileName);
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ error: 'File not found on server' });
+            }
+        } else if (req.body.fileData) {
+            // Base64 upload fallback
+            filePath = path.join(uploadsDir, `ewaste_${year}_${Date.now()}.xlsx`);
+            const buffer = Buffer.from(req.body.fileData.split(',')[1], 'base64');
+            fs.writeFileSync(filePath, buffer);
+        } else {
+            return res.status(400).json({ error: 'No file data provided' });
+        }
+
+        const workbook = xlsx.readFile(filePath);
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+        await db.read();
+        db.data.ewasteItems = db.data.ewasteItems || [];
+
+        let added = 0;
+        let updated = 0;
+        for (const row of data) {
+            const edpSerial = row['EDP Serial'] || row['EDP_Serial'] || row['edp serial'] || row['edp_serial'];
+            if (!edpSerial) continue;
+
+            const normalizedEDP = String(edpSerial).trim();
+            const hardware = db.data.hardware?.find(h => String(h.EDP_Serial).trim() === normalizedEDP);
+
+            let ewasteItem;
+            if (hardware) {
+                ewasteItem = {
+                    year,
+                    hardware_id: hardware.id,
+                    ...hardware,
+                    date_of_purchase: row['Date of Purchase'] || row['date_of_purchase'] || '',
+                    added_at: new Date().toISOString()
+                };
+            } else {
+                ewasteItem = {
+                    year,
+                    hardware_id: null,
+                    Item_Name: row['Item Name'] || '',
+                    EDP_Serial: normalizedEDP,
+                    date_of_purchase: row['Date of Purchase'] || '',
+                    Bill_Number: row['Bill Number'] || '',
+                    Cost: row['Cost'] || '',
+                    Make: row['Make'] || '',
+                    Capacity: row['Capacity'] || '',
+                    RAM: row['RAM'] || '',
+                    OS: row['OS'] || '',
+                    Office: row['Office'] || '',
+                    Speed: row['Speed'] || '',
+                    IP: row['IP'] || '',
+                    MAC: row['MAC'] || '',
+                    Company_Serial: row['Company Serial'] || '',
+                    Additional_Item: row['Additional Items'] || '',
+                    Status: row['Status'] || '',
+                    AMC: row['AMC'] || '',
+                    AMC_Upto: row['AMC Upto'] || '',
+                    Remarks: row['Remarks'] || '',
+                    added_at: new Date().toISOString()
+                };
+            }
+
+            // Upsert: update if exists by EDP_Serial + year, insert if new
+            const existingIndex = db.data.ewasteItems.findIndex(e =>
+                String(e.EDP_Serial).trim() === normalizedEDP && e.year === year
+            );
+            if (existingIndex !== -1) {
+                const existing = db.data.ewasteItems[existingIndex];
+                Object.assign(db.data.ewasteItems[existingIndex], { ...ewasteItem, id: existing.id });
+                updated++;
+            } else {
+                db.data.ewasteItems.push({
+                    id: Date.now().toString() + added + Math.random().toString(36).substr(2, 9),
+                    ...ewasteItem
+                });
+                added++;
+            }
+        }
+
+        await db.write();
+        res.json({ message: `Bulk upload complete. Added ${added} new, Updated ${updated} existing items.` });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Upload failed' });
+    }
+});
+
+
+// --- Software Module ---
+
+// GET all software
+app.get('/api/software', async (req, res) => {
+    try {
+        await db.read();
+        const software = (db.data.software || []).map(s => ({
+            ...s,
+            Purchase_Date: formatExcelDate(s.Purchase_Date),
+            Valid_Upto: formatExcelDate(s.Valid_Upto)
+        }));
+        res.json(software);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch software' });
+    }
+});
+
+// POST new software (Base64)
+app.post('/api/software', async (req, res) => {
+    try {
+        const { fileData, fileName, data } = req.body;
+        const softwareData = (typeof data === 'string') ? JSON.parse(data) : data || {};
+
+        await db.read();
+        db.data.software = db.data.software || [];
+
+        let savedFilename = '';
+
+        if (fileData && fileName) {
+            try {
+                const safeName = fileName.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+                const uniqueName = Date.now() + '-' + safeName;
+                const buffer = Buffer.from(fileData.split(',')[1], 'base64');
+
+                const targetDir = ensureUploadsDir();
+                const targetPath = path.join(targetDir, uniqueName);
+
+                fs.writeFileSync(targetPath, buffer);
+                console.log('Saved Software Document:', uniqueName);
+                savedFilename = uniqueName;
+            } catch (err) {
+                console.error('Context:', err.message || err);
+                // We can continue without file or error out (User choice, usually warning is enough)
+            }
+        }
+
+        const newSoftware = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            Software_Name: softwareData.Software_Name,
+            Quantity: softwareData.Quantity,
+            Source: softwareData.Source,
+            Bill_Number: softwareData.Bill_Number || '',
+            Vendor_Name: softwareData.Vendor_Name || '',
+            Letter_Number: softwareData.Letter_Number || '',
+            Purchase_Date: softwareData.Purchase_Date || '',
+            Amount: softwareData.Amount || 0,
+            Valid_Upto: softwareData.Valid_Upto || '',
+            Issued_To: softwareData.Issued_To || '',
+            License_Code: softwareData.License_Code || '',
+            Additional_Info: softwareData.Additional_Info || '',
+            Multiple_Issued: softwareData.Multiple_Issued || [],
+            Document: savedFilename,
+            created_at: new Date().toISOString()
+        };
+
+        db.data.software.push(newSoftware);
+        await db.write();
+        res.status(201).json({ message: 'Software created', software: newSoftware });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to create software' });
+    }
+});
+
+// PUT update software
+app.put('/api/software/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.read();
+
+        const index = db.data.software?.findIndex(s => s.id === id);
+        if (index === -1) {
+            return res.status(404).json({ error: 'Software not found' });
+        }
+
+        const softwareData = req.body.data || req.body;
+
+        // Handle base64 file upload (same pattern as POST)
+        let documentFilename = db.data.software[index].Document;
+        if (req.body.fileData && req.body.fileName) {
+            const base64Data = req.body.fileData.split(',')[1] || req.body.fileData;
+            const buffer = Buffer.from(base64Data, 'base64');
+            const uniqueName = Date.now() + '-' + req.body.fileName;
+            const filePath = path.join(uploadsDir, uniqueName);
+            fs.writeFileSync(filePath, buffer);
+            documentFilename = uniqueName;
+        }
+
+        db.data.software[index] = {
+            ...db.data.software[index],
+            Software_Name: softwareData.Software_Name,
+            Quantity: softwareData.Quantity,
+            Source: softwareData.Source,
+            Bill_Number: softwareData.Bill_Number || '',
+            Vendor_Name: softwareData.Vendor_Name || '',
+            Letter_Number: softwareData.Letter_Number || '',
+            Purchase_Date: softwareData.Purchase_Date || '',
+            Amount: softwareData.Amount || 0,
+            Valid_Upto: softwareData.Valid_Upto || '',
+            Issued_To: softwareData.Issued_To || '',
+            License_Code: softwareData.License_Code || '',
+            Additional_Info: softwareData.Additional_Info || '',
+            Multiple_Issued: softwareData.Multiple_Issued || [],
+            Document: documentFilename
+        };
+
+        await db.write();
+        res.json({ message: 'Software updated', software: db.data.software[index] });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to update software' });
+    }
+});
+
+// DELETE software
+app.delete('/api/software/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.read();
+
+        const initialLen = db.data.software?.length || 0;
+        db.data.software = (db.data.software || []).filter(s => s.id !== id);
+
+        if (db.data.software.length < initialLen) {
+            await db.write();
+            res.json({ message: 'Software deleted' });
+        } else {
+            res.status(404).json({ error: 'Software not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to delete software' });
+    }
+});
+
+// GET software document
+app.get('/api/software/:id/document', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await db.read();
+
+        const software = db.data.software?.find(s => s.id === id);
+        if (!software || !software.Document) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const filePath = path.join(uploadsDir, software.Document);
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ error: 'File not found on server' });
+        }
+
+        res.download(filePath);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to download document' });
+    }
+});
+
+// Download Software Excel
+app.get('/api/software/download', async (req, res) => {
+    try {
+        await db.read();
+        const software = db.data.software || [];
+
+        const exportData = software.map(s => ({
+            'Software Name': s.Software_Name,
+            'Quantity': s.Quantity,
+            'Source': s.Source,
+            'Bill Number': s.Bill_Number,
+            'Vendor Name': s.Vendor_Name,
+            'Letter Number': s.Letter_Number,
+            'Purchase Date': s.Purchase_Date,
+            'Amount (INR)': s.Amount,
+            'Valid Upto': s.Valid_Upto,
+            'Issued To': s.Issued_To,
+            'License Code': s.License_Code,
+            'Additional Info': s.Additional_Info,
+            'Multiple Issued': Array.isArray(s.Multiple_Issued) ? s.Multiple_Issued.join(', ') : s.Multiple_Issued
+        }));
+
+        const worksheet = xlsx.utils.json_to_sheet(exportData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Software');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="software.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Upload Software Excel
+app.post('/api/software/upload', memoryUpload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+        await db.read();
+        db.data.software = db.data.software || [];
+
+        let added = 0;
+        let updated = 0;
+        for (const row of data) {
+            if (!row['Software Name']) continue;
+
+            const softwareData = {
+                Software_Name: row['Software Name'],
+                Quantity: row['Quantity'] || 1,
+                Source: row['Source'] || 'Purchased',
+                Bill_Number: row['Bill Number'] || '',
+                Vendor_Name: row['Vendor Name'] || '',
+                Letter_Number: row['Letter Number'] || '',
+                Purchase_Date: formatExcelDate(row['Purchase Date']),
+                Amount: row['Amount (INR)'] || 0,
+                Valid_Upto: formatExcelDate(row['Valid Upto']),
+                Issued_To: row['Issued To'] || '',
+                License_Code: row['License Code'] || '',
+                Additional_Info: row['Additional Info'] || '',
+                Multiple_Issued: row['Multiple Issued'] ? row['Multiple Issued'].split(',').map(s => s.trim()) : []
+            };
+
+            // Upsert: update if exists by Software_Name + Bill_Number, insert if new
+            const existingIndex = db.data.software.findIndex(s =>
+                s.Software_Name === softwareData.Software_Name &&
+                s.Bill_Number === softwareData.Bill_Number
+            );
+            if (existingIndex !== -1) {
+                const existing = db.data.software[existingIndex];
+                Object.assign(db.data.software[existingIndex], {
+                    ...softwareData,
+                    id: existing.id,
+                    Document: existing.Document || '',
+                    created_at: existing.created_at
+                });
+                updated++;
+            } else {
+                db.data.software.push({
+                    id: Date.now().toString() + added + Math.random().toString(36).substr(2, 9),
+                    ...softwareData,
+                    Document: '',
+                    created_at: new Date().toISOString()
+                });
+                added++;
+            }
+        }
+
+        await db.write();
+        res.json({ message: `Bulk upload complete. Added ${added} new, Updated ${updated} existing software entries.` });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Upload failed' });
+    }
+});
+
+// --- Reports API ---
+
+// GET Hardware Report
+app.get('/api/reports/hardware', async (req, res) => {
+    try {
+        await db.read();
+        const hardware = db.data.hardware || [];
+        const grouped = {};
+
+        hardware.forEach(item => {
+            const key = `${item.Item_Name || 'Unknown'}_${item.Capacity || 'N/A'}`;
+            if (!grouped[key]) {
+                grouped[key] = {
+                    Item_Name: item.Item_Name || 'Unknown',
+                    Capacity: item.Capacity || 'N/A',
+                    Total_Quantity: 0,
+                    Stock_Quantity: 0,
+                    _hasAMC: false,
+                    _hasWarranty: false
+                };
+            }
+            grouped[key].Total_Quantity++;
+            const isStockItem = (!item.Issued_To || item.Issued_To === '' || String(item.Issued_To).toUpperCase() === 'STOCK')
+                && (!item.Allocated_To || item.Allocated_To === '' || String(item.Allocated_To).toUpperCase() === 'STOCK');
+            if (isStockItem) {
+                grouped[key].Stock_Quantity++;
+            }
+            if (item.AMC === 'Yes') {
+                grouped[key]._hasAMC = true;
+            }
+            if (item.Warranty_Upto) {
+                // Parse DD-MM-YYYY or try native Date
+                let warrantyDate;
+                const parts = String(item.Warranty_Upto).split('-');
+                if (parts.length === 3 && parts[0].length <= 2) {
+                    warrantyDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                } else {
+                    warrantyDate = new Date(item.Warranty_Upto);
+                }
+                if (warrantyDate > new Date()) {
+                    grouped[key]._hasWarranty = true;
+                }
+            }
+        });
+
+        // Set final AMC/Warranty status
+        Object.values(grouped).forEach(g => {
+            if (g._hasAMC && g._hasWarranty) g.AMC_Warranty_Status = 'Under AMC/Warranty';
+            else if (g._hasAMC) g.AMC_Warranty_Status = 'Under AMC';
+            else if (g._hasWarranty) g.AMC_Warranty_Status = 'Under Warranty';
+            else g.AMC_Warranty_Status = 'NA';
+            delete g._hasAMC;
+            delete g._hasWarranty;
+        });
+
+        const result = Object.values(grouped).sort((a, b) => {
+            if (a.Item_Name !== b.Item_Name) return a.Item_Name.localeCompare(b.Item_Name);
+            return a.Capacity.localeCompare(b.Capacity);
+        });
+        res.json(result);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to generate hardware report' });
+    }
+});
+
+// GET Hardware Report Excel Download
+app.get('/api/reports/hardware/download', async (req, res) => {
+    try {
+        await db.read();
+        const hardware = db.data.hardware || [];
+        const grouped = {};
+
+        hardware.forEach(item => {
+            const key = `${item.Item_Name || 'Unknown'}_${item.Capacity || 'N/A'}`;
+            if (!grouped[key]) {
+                grouped[key] = {
+                    'Item Name': item.Item_Name || 'Unknown',
+                    'Capacity': item.Capacity || 'N/A',
+                    'Total Quantity': 0,
+                    'Quantity in Stock': 0,
+                    _hasAMC: false,
+                    _hasWarranty: false
+                };
+            }
+            grouped[key]['Total Quantity']++;
+            const isStockItem = (!item.Issued_To || item.Issued_To === '' || String(item.Issued_To).toUpperCase() === 'STOCK')
+                && (!item.Allocated_To || item.Allocated_To === '' || String(item.Allocated_To).toUpperCase() === 'STOCK');
+            if (isStockItem) {
+                grouped[key]['Quantity in Stock']++;
+            }
+            if (item.AMC === 'Yes') {
+                grouped[key]._hasAMC = true;
+            }
+            if (item.Warranty_Upto) {
+                let warrantyDate;
+                const parts = String(item.Warranty_Upto).split('-');
+                if (parts.length === 3 && parts[0].length <= 2) {
+                    warrantyDate = new Date(parts[2], parts[1] - 1, parts[0]);
+                } else {
+                    warrantyDate = new Date(item.Warranty_Upto);
+                }
+                if (warrantyDate > new Date()) {
+                    grouped[key]._hasWarranty = true;
+                }
+            }
+        });
+
+        // Set final AMC/Warranty status
+        Object.values(grouped).forEach(g => {
+            if (g._hasAMC && g._hasWarranty) g['AMC/Warranty Status'] = 'Under AMC/Warranty';
+            else if (g._hasAMC) g['AMC/Warranty Status'] = 'Under AMC';
+            else if (g._hasWarranty) g['AMC/Warranty Status'] = 'Under Warranty';
+            else g['AMC/Warranty Status'] = 'NA';
+            delete g._hasAMC;
+            delete g._hasWarranty;
+        });
+
+        const sortedData = Object.values(grouped).sort((a, b) => {
+            if (a['Item Name'] !== b['Item Name']) return a['Item Name'].localeCompare(b['Item Name']);
+            return a['Capacity'].localeCompare(b['Capacity']);
+        });
+
+        const finalData = [];
+        let grandTotal = 0;
+        let grandStock = 0;
+        let currentGroup = null;
+        let groupTotal = 0;
+        let groupStock = 0;
+
+        sortedData.forEach((item, index) => {
+            if (currentGroup && item['Item Name'] !== currentGroup) {
+                finalData.push({
+                    'Item Name': `${currentGroup} Total`,
+                    'Capacity': '',
+                    'Total Quantity': groupTotal,
+                    'Quantity in Stock': groupStock,
+                    'AMC/Warranty Status': ''
+                });
+                groupTotal = 0;
+                groupStock = 0;
+            }
+            currentGroup = item['Item Name'];
+
+            finalData.push(item);
+            groupTotal += item['Total Quantity'];
+            groupStock += item['Quantity in Stock'];
+            grandTotal += item['Total Quantity'];
+            grandStock += item['Quantity in Stock'];
+
+            if (index === sortedData.length - 1) {
+                finalData.push({
+                    'Item Name': `${currentGroup} Total`,
+                    'Capacity': '',
+                    'Total Quantity': groupTotal,
+                    'Quantity in Stock': groupStock,
+                    'AMC/Warranty Status': ''
+                });
+            }
+        });
+
+        finalData.push({
+            'Item Name': 'Grand Total',
+            'Capacity': '',
+            'Total Quantity': grandTotal,
+            'Quantity in Stock': grandStock,
+            'AMC/Warranty Status': ''
+        });
+
+        const worksheet = xlsx.utils.json_to_sheet(finalData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Hardware Report');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename=hardware_report.xlsx');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to download hardware report' });
+    }
+});
+
+// GET Software Report
+app.get('/api/reports/software', async (req, res) => {
+    try {
+        await db.read();
+        const software = db.data.software || [];
+        const grouped = {};
+
+        software.forEach(item => {
+            const key = item.Software_Name || 'Unknown';
+            if (!grouped[key]) {
+                grouped[key] = {
+                    Software_Name: item.Software_Name || 'Unknown',
+                    Total_Quantity: 0,
+                    Quantity_Not_Issued: 0
+                };
+            }
+            const quantity = item.Quantity || 1;
+            grouped[key].Total_Quantity += quantity;
+            let issuedCount = 0;
+            if (item.Issued_To && item.Issued_To !== '') issuedCount++;
+            if (item.Multiple_Issued && Array.isArray(item.Multiple_Issued)) {
+                issuedCount += item.Multiple_Issued.length;
+            }
+            grouped[key].Quantity_Not_Issued += Math.max(0, quantity - issuedCount);
+        });
+
+        const result = Object.values(grouped).sort((a, b) =>
+            a.Software_Name.localeCompare(b.Software_Name)
+        );
+        res.json(result);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to generate software report' });
+    }
+});
+
+// GET Software Report Excel Download
+app.get('/api/reports/software/download', async (req, res) => {
+    try {
+        await db.read();
+        const software = db.data.software || [];
+        const grouped = {};
+
+        software.forEach(item => {
+            const key = item.Software_Name || 'Unknown';
+            if (!grouped[key]) {
+                grouped[key] = {
+                    'Software Name': item.Software_Name || 'Unknown',
+                    'Total Quantity': 0,
+                    'Quantity Not Issued': 0
+                };
+            }
+            const quantity = item.Quantity || 1;
+            grouped[key]['Total Quantity'] += quantity;
+            let issuedCount = 0;
+            if (item.Issued_To && item.Issued_To !== '') issuedCount++;
+            if (item.Multiple_Issued && Array.isArray(item.Multiple_Issued)) {
+                issuedCount += item.Multiple_Issued.length;
+            }
+            grouped[key]['Quantity Not Issued'] += Math.max(0, quantity - issuedCount);
+        });
+
+        const data = Object.values(grouped).sort((a, b) =>
+            a['Software Name'].localeCompare(b['Software Name'])
+        );
+
+        const worksheet = xlsx.utils.json_to_sheet(data);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Software Report');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename=software_report.xlsx');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to download software report' });
+    }
+});
+
+
+// --- Permanent Allocation Module ---
+
+// GET All Permanent Allocation Items
+app.get('/api/permanent-allocation', async (req, res) => {
+    try {
+        await db.read();
+        res.json(db.data.permanent_allocation || []);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to fetch permanent allocation data' });
+    }
+});
+
+// Transfer Items to Permanent Allocation
+app.post('/api/permanent-allocation/transfer', upload.single('notesheet'), async (req, res) => {
+    try {
+        if (!req.body.data) return res.status(400).json({ error: 'No data provided' });
+        const { ids, transferType, targetOffice } = JSON.parse(req.body.data);
+        const file = req.file;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'No items selected for transfer' });
+        }
+
+        await db.read();
+        db.data.permanent_allocation = db.data.permanent_allocation || [];
+        db.data.hardware = db.data.hardware || [];
+        const employees = db.data.employees || [];
+        const invoices = db.data.invoices || [];
+
+        const transferredItems = [];
+        const remainingHardware = [];
+        const updateIds = ids.map(String);
+
+        db.data.hardware.forEach(item => {
+            if (updateIds.includes(String(item.id))) {
+                // Determine PIN (Allocated_To or Issued_To)
+                const pin = item.Allocated_To || item.Issued_To || '';
+
+                // DEBUG LOGGING
+                console.log('\n=== TRANSFER DEBUG ===');
+                console.log('Hardware Item ID:', item.id);
+                console.log('Hardware EDP Serial:', item.EDP_Serial);
+                console.log('Raw Allocated_To:', item.Allocated_To);
+                console.log('Raw Issued_To:', item.Issued_To);
+                console.log('Selected PIN:', pin);
+                console.log('Total Employees Loaded:', employees.length);
+
+                // Lookup Employee (robust comparison handling leading zeros)
+                const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+                const targetPin = normalize(pin);
+                console.log('Normalized Target PIN:', targetPin);
+
+                // Log first 3 employees for comparison
+                console.log('Sample Employee PINs:', employees.slice(0, 3).map(e => ({
+                    raw: e.PIN,
+                    normalized: normalize(e.PIN),
+                    name: e.Name || e['Employee Name']
+                })));
+
+                const emp = employees.find(e => normalize(e.PIN) === targetPin);
+                console.log('Employee Found:', !!emp);
+                if (emp) {
+                    console.log('Employee Details:', {
+                        PIN: emp.PIN,
+                        Name: emp.Name || emp['Employee Name'],
+                        Post: emp.Present_Post || emp['Present Post'] || emp.Designation
+                    });
+                }
+                console.log('=== END DEBUG ===\n');
+
+                // Lookup Invoice for Purchase Date if missing
+                const invoice = invoices.find(i => i.Bill_Number === item.Bill_Number);
+                const purchaseDate = item.Date_of_Purchase || (invoice ? invoice.Date : '');
+
+                // Snapshot Item
+                const newItem = {
+                    ...item,
+                    PIN: pin,
+                    // Lookup keys with potential spaces
+                    Name: emp ? (emp.Name || emp['Employee Name']) : (item.Issued_To || item.Name || ''),
+                    Post: emp ? (emp.Present_Post || emp['Present Post'] || emp.Designation) : (item.Present_Post || ''),
+                    Date_of_Purchase: purchaseDate,
+                    Transfer_Id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                    Transfer_Date: new Date().toISOString().split('T')[0],
+                    R_T_Type: transferType,
+                    Target_Office: targetOffice,
+                    Notesheet_Doc: file ? file.filename : null
+                };
+
+                // Removed explicit Office overwrite to preserve source office
+
+                transferredItems.push(newItem);
+            } else {
+                remainingHardware.push(item);
+            }
+        });
+
+        if (transferredItems.length === 0) {
+            return res.status(404).json({ error: 'Selected items not found in hardware inventory' });
+        }
+
+        db.data.permanent_allocation.push(...transferredItems);
+        db.data.hardware = remainingHardware;
+
+        await db.write();
+
+        res.json({ message: `Successfully transferred ${transferredItems.length} items`, count: transferredItems.length });
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to transfer items' });
+    }
+});
+
+// Download Notesheet
+app.get('/api/permanent-allocation/download/:filename', async (req, res) => {
+    try {
+        const { filename } = req.params;
+        const filePath = path.join(uploadsDir, filename);
+        if (fs.existsSync(filePath)) {
+            res.download(filePath);
+        } else {
+            res.status(404).json({ error: 'File not found' });
+        }
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Download Permanent Allocation Excel
+app.get('/api/permanent-allocation/download-excel', async (req, res) => {
+    try {
+        await db.read();
+        const data = db.data.permanent_allocation || [];
+
+        // Map data to columns
+        const excelData = data.map(item => ({
+            'R/T Type': item.R_T_Type || (item.Transfer_Type === 'Retired' ? 'Retired' : 'Transferred'),
+            'To Office': item.Target_Office || '',
+            'Item Name': item.Item_Name,
+            'EDP Serial': item.EDP_Serial,
+            'PIN': item.PIN || '',
+            'Name': item.Name || item.Issued_To || '',
+            'Post': item.Post || item.Present_Post || item.Designation || '',
+            'Issued Date': item.Issued_Date || '',
+            'Purchased': item.Date_of_Purchase || '',
+            'Bill Number': item.Bill_Number,
+            'Cost': item.Cost,
+            'Make': item.Make,
+            'Capacity': item.Capacity,
+            'RAM': item.RAM,
+            'OS': item.OS,
+            'Office': item.Office || item.Target_Office || '',
+            'Speed': item.Speed || '',
+            'IP': item.IP_Address || '',
+            'MAC': item.MAC_Address || '',
+            'Co. Serial': item.Company_Serial || '',
+            'Add. Items': item.Additional_Item,
+            'Status': item.Status,
+            'Remarks': item.Remarks,
+            'Ref. Docs': item.Notesheet_Doc || ''
+        }));
+
+        const worksheet = xlsx.utils.json_to_sheet(excelData);
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, 'Permanent Allocation');
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename=permanent_allocation.xlsx');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to download excel' });
+    }
+});
+
+// --- Dashboard Module ---
+
+// NOC Search - Search employee by PIN or Name and get all details with hardware
+app.get('/api/dashboard/noc-search', async (req, res) => {
+    try {
+        const { query } = req.query;
+
+        if (!query || query.trim() === '') {
+            return res.json(null);
+        }
+
+        await db.read();
+        const employees = db.data.employees || [];
+        const hardware = db.data.hardware || [];
+        const invoices = db.data.invoices || [];
+
+        // Normalize for case-insensitive search
+        const searchTerm = query.toLowerCase().trim();
+
+        // Search all employees matching PIN or Name (partial match)
+        const matchedEmployees = employees.filter(emp => {
+            const pin = String(emp.PIN || '').toLowerCase();
+            const name = String(emp.Name || emp['Employee Name'] || '').toLowerCase();
+            return pin.includes(searchTerm) || name.includes(searchTerm);
+        });
+
+        if (matchedEmployees.length === 0) {
+            return res.json(null);
+        }
+
+        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
+        // Build results for each matched employee
+        const results = matchedEmployees.map(employee => {
+            // Get employee details
+            const employeeDetails = {
+                PIN: employee.PIN,
+                Name: employee.Name || employee['Employee Name'],
+                Present_Post: employee.Present_Post || employee['Present Post'] || employee.Designation,
+                Mobile: employee.Mobile || '',
+                Office: employee.Office,
+                Hqr_Field: employee['Hqr/Field'] || employee.Hqr_Field
+            };
+
+            // Find all hardware issued to this employee
+            const targetPin = normalize(employee.PIN);
+
+            const issuedHardware = hardware.filter(hw => {
+                const issuedTo = normalize(hw.Issued_To);
+                const allocatedTo = normalize(hw.Allocated_To);
+                return issuedTo === targetPin || allocatedTo === targetPin;
+            });
+
+            // Enhance hardware with invoice data
+            const hardwareList = issuedHardware.map(hw => {
+                const invoice = invoices.find(inv => inv.Bill_Number === hw.Bill_Number);
+                return {
+                    Item_Name: hw.Item_Name,
+                    EDP_Serial: hw.EDP_Serial,
+                    Issued_Date: hw.Issued_Date,
+                    Make: hw.Make,
+                    Company_Serial: hw.Company_Serial,
+                    Bill_Number: hw.Bill_Number,
+                    Date_of_Purchase: hw.Date_of_Purchase || (invoice ? invoice.Date : ''),
+                    Cost: hw.Cost
+                };
+            });
+
+            return {
+                employee: employeeDetails,
+                hardware: hardwareList
+            };
+        });
+
+        res.json({ employees: results });
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to search NOC data' });
+    }
+});
+
+// Retirement Suggestions - Find retired employees and suggest actions
+app.get('/api/dashboard/retirement-suggestions', async (req, res) => {
+    try {
+        await db.read();
+        const employees = db.data.employees || [];
+        const hardware = db.data.hardware || [];
+
+        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
+        // Helper to parse date from various formats (Excel serial, DD-MM-YYYY, YYYY-MM-DD)
+        const parseDate = (val) => {
+            if (!val) return null;
+
+            // Check for Excel serial number
+            const num = Number(val);
+            // Excel serial 10000 is year 1927, 90000 is year 2146
+            if (!isNaN(num) && num > 10000 && num < 90000) {
+                // (num - 25569) * 86400 * 1000 converts Excel serial to Unix ms
+                return new Date(Math.round((num - 25569) * 86400 * 1000));
+            }
+
+            // Check for DD-MM-YYYY or DD/MM/YYYY
+            if (typeof val === 'string' && (val.includes('-') || val.includes('/'))) {
+                const parts = val.split(/[-/]/);
+                if (parts.length === 3) {
+                    // Assumption: DD-MM-YYYY (Indian/UK format)
+                    // If it's YYYY-MM-DD
+                    if (parts[0].length === 4) {
+                        return new Date(val);
+                    }
+                    // DD-MM-YYYY
+                    return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                }
+            }
+
+            // Fallback to standard parser
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? null : d;
+        };
+
+        // Filter employees with retirement date < current date
+        const retiredEmployees = employees.filter(emp => {
+            const dateVal = emp.Retirement_Date || emp['Retirement Date'];
+            if (!dateVal) return false;
+
+            const retirementDate = parseDate(dateVal);
+            if (!retirementDate) return false;
+
+            // Reset time part for accurate date comparison
+            retirementDate.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            return retirementDate < today;
+        });
+
+        // Format date to DD-MM-YYYY for display
+        const formatDate = (val) => {
+            const d = parseDate(val);
+            if (!d) return val;
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}-${month}-${year}`;
+        };
+
+        const withHardware = [];
+        const withoutHardware = [];
+
+        retiredEmployees.forEach(emp => {
+            const targetPin = normalize(emp.PIN);
+
+            // Find hardware issued to this employee
+            const employeeHardware = hardware.filter(hw => {
+                const issuedTo = normalize(hw.Issued_To);
+                const allocatedTo = normalize(hw.Allocated_To);
+                return issuedTo === targetPin || allocatedTo === targetPin;
+            });
+
+            if (employeeHardware.length > 0) {
+                // Employee has hardware
+                employeeHardware.forEach(hw => {
+                    withHardware.push({
+                        Item_Name: hw.Item_Name,
+                        EDP_Serial: hw.EDP_Serial,
+                        PIN: emp.PIN,
+                        Name: emp.Name || emp['Employee Name'],
+                        hardware_id: hw.id,
+                        Retirement_Date: formatDate(emp.Retirement_Date || emp['Retirement Date'])
+                    });
+                });
+            } else {
+                // Employee has no hardware
+                withoutHardware.push({
+                    PIN: emp.PIN,
+                    Name: emp.Name || emp['Employee Name'],
+                    Present_Post: emp.Present_Post || emp['Present Post'] || emp.Designation,
+                    Retirement_Date: formatDate(emp.Retirement_Date || emp['Retirement Date']),
+                    employee_id: emp.id || emp.PIN
+                });
+            }
+        });
+
+        res.json({
+            withHardware,
+            withoutHardware
+        });
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to get retirement suggestions' });
+    }
+});
+
+// Stock Count - Get count of items in stock grouped by item type
+app.get('/api/dashboard/stock-count', async (req, res) => {
+    try {
+        const { item } = req.query; // Optional: get bifurcation for specific item
+
+        await db.read();
+        const hardware = db.data.hardware || [];
+        const invoices = db.data.invoices || [];
+
+        // Filter stock items (not issued/allocated to anyone)
+        const isStock = (val) => !val || val === '' || String(val).toUpperCase() === 'STOCK';
+        const stockItems = hardware.filter(hw =>
+            isStock(hw.Issued_To) && isStock(hw.Allocated_To)
+        );
+
+        if (item) {
+            // Return bifurcation for specific item
+            const itemList = stockItems
+                .filter(hw => hw.Item_Name === item)
+                .map(hw => {
+                    const invoice = invoices.find(inv => inv.Bill_Number === hw.Bill_Number);
+                    return {
+                        EDP_Serial: hw.EDP_Serial,
+                        Make: hw.Make,
+                        Capacity: hw.Capacity,
+                        Bill_Number: hw.Bill_Number,
+                        Cost: hw.Cost,
+                        Date_of_Purchase: hw.Date_of_Purchase || (invoice ? invoice.Date : ''),
+                        RAM: hw.RAM,
+                        Status: hw.Status
+                    };
+                });
+
+            return res.json({ item, items: itemList });
+        }
+
+        // Group by Item_Name and count
+        const grouped = {};
+        stockItems.forEach(hw => {
+            const itemName = hw.Item_Name || 'Unknown';
+            if (!grouped[itemName]) {
+                grouped[itemName] = {
+                    Item_Name: itemName,
+                    Count: 0
+                };
+            }
+            grouped[itemName].Count++;
+        });
+
+        const result = Object.values(grouped).sort((a, b) =>
+            a.Item_Name.localeCompare(b.Item_Name)
+        );
+
+        // Add total count
+        const totalCount = stockItems.length;
+
+        res.json({
+            items: result,
+            totalCount
+        });
+
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to get stock count' });
+    }
+});
+
+// --- Dashboard: Hardware Status (Under Repair / Not Working) ---
+app.get('/api/dashboard/hardware-status', async (req, res) => {
+    try {
+        const { status, location } = req.query;
+        await db.read();
+        const hardware = db.data.hardware || [];
+        const invoices = db.data.invoices || [];
+        const employees = db.data.employees || [];
+
+        const underRepair = hardware.filter(h => h.Status === 'Under Repair');
+        const notWorking = hardware.filter(h => h.Status === 'Not Working');
+        const serverRoom = hardware.filter(h => h.Issued_Location === 'Server Room');
+        const eWasteStore = hardware.filter(h => h.Issued_Location === 'E-Waste Store');
+
+        if (status || location) {
+            let targetArray = [];
+            if (status === 'Under Repair') targetArray = underRepair;
+            else if (status === 'Not Working') targetArray = notWorking;
+            else if (location === 'Server Room') targetArray = serverRoom;
+            else if (location === 'E-Waste Store') targetArray = eWasteStore;
+
+            const items = targetArray.map(hw => {
+                const invoice = invoices.find(inv => inv.Bill_Number === hw.Bill_Number);
+                const emp = employees.find(e => String(e.PIN) === String(hw.Allocated_To));
+                return {
+                    id: hw.id,
+                    Item_Name: hw.Item_Name,
+                    EDP_Serial: hw.EDP_Serial,
+                    Make: hw.Make,
+                    Capacity: hw.Capacity,
+                    RAM: hw.RAM,
+                    Bill_Number: hw.Bill_Number,
+                    Cost: hw.Cost,
+                    Status: hw.Status,
+                    Issued_Location: hw.Issued_Location || '',
+                    Allocated_To: hw.Allocated_To,
+                    Employee_Name: emp ? emp.Name : (hw.Allocated_To === 'STOCK' ? 'STOCK' : hw.Allocated_To || '-'),
+                    Date_of_Purchase: hw.Date_of_Purchase || (invoice ? invoice.Date : '')
+                };
+            });
+            return res.json({ status: status || location, items });
+        }
+
+        res.json({
+            underRepairCount: underRepair.length,
+            notWorkingCount: notWorking.length,
+            serverRoomCount: serverRoom.length,
+            eWasteCount: eWasteStore.length
+        });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to get hardware status' });
+    }
+});
+
+// --- Dashboard: Update Hardware Status ---
+app.put('/api/dashboard/hardware-status/update', async (req, res) => {
+    try {
+        const { id, status } = req.body;
+        if (!id || !status) return res.status(400).json({ error: 'id and status are required' });
+
+        await db.read();
+        const index = db.data.hardware.findIndex(h => h.id === id);
+        if (index === -1) return res.status(404).json({ error: 'Hardware not found' });
+
+        db.data.hardware[index].Status = status;
+        await db.write();
+
+        res.json({ message: 'Status updated', item: db.data.hardware[index] });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to update status' });
+    }
+});
+
+// TEST ENDPOINT - verify server is running updated code
+app.get('/api/test-delete-debug', async (req, res) => {
+    console.log('TEST ENDPOINT HIT!');
+    await db.read();
+    const employees = db.data.employees || [];
+    const sample = employees.slice(0, 2);
+    console.log('Sample employees:', JSON.stringify(sample, null, 2));
+    res.json({ message: 'Test endpoint working', totalEmployees: employees.length, sample });
+});
+
+// Delete Employee - Remove employee from directory
+app.delete('/api/employees/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log('DELETE /api/employees/:id - Received ID:', id);
+        await db.read();
+
+        const employees = db.data.employees || [];
+        console.log('Total employees:', employees.length);
+        const index = employees.findIndex(emp => {
+            const idMatch = String(emp.id) === String(id);
+            const pinMatch = String(emp.PIN) === String(id);
+            const matches = idMatch || pinMatch;
+            if (matches) console.log('Match found:', emp.PIN, emp.Name, '(matched by:', idMatch ? 'id' : 'PIN', ')');
+            return matches;
+        });
+
+        if (index === -1) {
+            console.log('NOT FOUND - Looking for ID:', id);
+            console.log('First 3 employees:', employees.slice(0, 3).map(e => ({ id: e.id, PIN: e.PIN, Name: e.Name })));
+            return res.status(404).json({
+                error: 'Employee not found',
+                searchedId: id,
+                totalEmployees: employees.length,
+                sampleIds: employees.slice(0, 5).map(e => ({ id: e.id, PIN: e.PIN }))
+            });
+        }
+
+        // Remove employee
+        const deletedEmployee = employees.splice(index, 1)[0];
+        db.data.employees = employees;
+
+        await db.write();
+        res.json({
+            message: 'Employee deleted successfully',
+            employee: deletedEmployee
+        });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to delete employee' });
+    }
+});
+
+
+// Server instance for Electron control
+let server = null;
+
+/**
+ * Start the Express server
+ * @returns {Promise<object>} The server instance
+ */
+export async function startServer() {
+    return new Promise((resolve) => {
+        server = app.listen(port, () => {
+            console.log(`Server running on http://localhost:${port}`);
+            console.log(`Uploads directory: ${uploadsDir}`);
+
+            // Verify write permissions
+            try {
+                const testFile = path.join(uploadsDir, 'perm_test.txt');
+                fs.writeFileSync(testFile, 'ok');
+                fs.unlinkSync(testFile);
+                console.log('Write permissions check passed');
+            } catch (e) {
+                console.error('Context:', e.message || e);
+            }
+
+            console.log(`Database path: ${process.env.DEADSTOCK_DB_PATH || 'default'}`);
+            resolve(server);
+        });
+    });
+}
+
+/**
+ * Stop the Express server
+ */
+export async function stopServer() {
+    if (server) {
+        return new Promise((resolve) => {
+            server.close(() => {
+                console.log('Server stopped');
+                resolve();
+            });
+        });
+    }
+}
+
+// --- Employee PIN Deduplication ---
+app.post('/api/employees/deduplicate', async (req, res) => {
+    try {
+        await db.read();
+        const employees = db.data.employees || [];
+        const seen = new Map();
+        const unique = [];
+
+        for (const emp of employees) {
+            const pinKey = String(emp.PIN);
+            if (!seen.has(pinKey)) {
+                seen.set(pinKey, true);
+                unique.push(emp);
+            }
+        }
+
+        const removed = employees.length - unique.length;
+        db.data.employees = unique;
+        await db.write();
+
+        console.log(`Deduplication complete: removed ${removed} duplicates, ${unique.length} remaining`);
+        res.json({ message: `Removed ${removed} duplicate employees. ${unique.length} unique records remaining.`, removed, remaining: unique.length });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Deduplication failed' });
+    }
+});
+
+// --- Full Backup (multi-sheet Excel) ---
+app.get('/api/backup/full', async (req, res) => {
+    try {
+        await db.read();
+        const workbook = xlsx.utils.book_new();
+
+        // Suppliers
+        const suppliers = db.data.suppliers || [];
+        if (suppliers.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(suppliers), 'Suppliers');
+        }
+
+        // Invoices (flatten with items)
+        const invoices = db.data.invoices || [];
+        if (invoices.length > 0) {
+            const flatInvoices = [];
+            for (const inv of invoices) {
+                if (inv.items && inv.items.length > 0) {
+                    for (const item of inv.items) {
+                        flatInvoices.push({
+                            Bill_Number: inv.Bill_Number,
+                            Supplier: inv.Supplier,
+                            Date: inv.Date,
+                            ...item
+                        });
+                    }
+                } else {
+                    flatInvoices.push(inv);
+                }
+            }
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(flatInvoices), 'Invoices');
+        }
+
+        // Hardware
+        const hardware = db.data.hardware || [];
+        if (hardware.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(hardware), 'Hardware');
+        }
+
+        // Employees
+        const employees = db.data.employees || [];
+        if (employees.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(employees), 'Employees');
+        }
+
+        // Hardware Allocation (Enriched)
+        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+        const allocEnriched = hardware.map(h => {
+            const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+            const inv = invoices.find(i => i.Bill_Number === h.Bill_Number);
+            return {
+                'Item Name': h.Item_Name,
+                'EDP Serial': h.EDP_Serial,
+                'PIN': h.Allocated_To,
+                'Employee Name': emp?.Name || (h.Allocated_To === 'STOCK' ? 'STOCK' : ''),
+                'Present Post': emp?.Present_Post || '',
+                'Mobile': emp?.Mobile || '',
+                'Wing': emp?.Wing || '',
+                'Issued Date': h.Issued_Date,
+                'Issued Location': h.Issued_Location || '',
+                'Make': h.Make,
+                'Company Serial': h.Company_Serial,
+                'Bill Number': h.Bill_Number,
+                'Purchased Date': inv?.Date || '',
+                'Cost': h.Cost,
+                'Status': h.Status || 'Working'
+            };
+        });
+        if (allocEnriched.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(allocEnriched), 'Hardware_Allocation');
+        }
+
+        // Software
+        const software = db.data.software || [];
+        if (software.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(software), 'Software');
+        }
+
+        // E-Waste Items
+        const ewasteItems = db.data.ewasteItems || [];
+        if (ewasteItems.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(ewasteItems), 'E-Waste');
+        }
+
+        // Permanent Allocation
+        const permAlloc = db.data.permanent_allocation || [];
+        if (permAlloc.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(permAlloc), 'Permanent_Allocation');
+        }
+
+        // Allocation History
+        const allocHistory = db.data.allocationHistory || [];
+        if (allocHistory.length > 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet(allocHistory), 'Allocation_History');
+        }
+
+        // If workbook has no sheets, add an empty one
+        if (workbook.SheetNames.length === 0) {
+            xlsx.utils.book_append_sheet(workbook, xlsx.utils.json_to_sheet([{ message: 'No data' }]), 'Info');
+        }
+
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        const base64 = buffer.toString('base64');
+
+        // Also read the raw database file for backup
+        let dbBase64 = null;
+        try {
+            const dbPath = getDatabaseFilePath();
+            if (dbPath && fs.existsSync(dbPath)) {
+                const dbBuffer = fs.readFileSync(dbPath);
+                dbBase64 = dbBuffer.toString('base64');
+            }
+        } catch (dbErr) {
+            console.error('Context:', dbErr.message || dbErr);
+        }
+
+        res.json({ buffer: base64, dbBuffer: dbBase64, sheets: workbook.SheetNames });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Backup generation failed' });
+    }
+});
+
+// --- Restore Database from .deadstock file ---
+app.post('/api/backup/restore', async (req, res) => {
+    try {
+        const { dbBuffer } = req.body;
+        if (!dbBuffer) {
+            return res.status(400).json({ error: 'No database file provided' });
+        }
+
+        // Decode and validate the JSON
+        const decoded = Buffer.from(dbBuffer, 'base64').toString('utf8');
+        let parsed;
+        try {
+            parsed = JSON.parse(decoded);
+        } catch (e) {
+            console.error('Context:', e.message || e);
+            return res.status(400).json({ error: 'Invalid database file — could not parse JSON' });
+        }
+
+        // Basic structure validation
+        const requiredKeys = ['suppliers', 'invoices', 'hardware', 'employees'];
+        const hasKeys = requiredKeys.filter(k => parsed[k] !== undefined);
+        if (hasKeys.length < 2) {
+            return res.status(400).json({ error: 'Invalid database file — missing required data tables' });
+        }
+
+        // Backup current DB before overwriting
+        const dbPath = getDatabaseFilePath();
+        if (dbPath && fs.existsSync(dbPath)) {
+            const backupPath = dbPath + '.pre_restore_' + Date.now();
+            fs.copyFileSync(dbPath, backupPath);
+            console.log('Pre-restore backup saved:', backupPath);
+        }
+
+        // Write the restored data
+        fs.writeFileSync(dbPath, decoded, 'utf8');
+        console.log('Database restored from uploaded file');
+
+        // Reinitialize the database
+        await initDatabase(dbPath);
+
+        // Count records for response
+        await db.read();
+        const counts = {
+            suppliers: (db.data.suppliers || []).length,
+            invoices: (db.data.invoices || []).length,
+            hardware: (db.data.hardware || []).length,
+            employees: (db.data.employees || []).length,
+            software: (db.data.software || []).length,
+            ewasteItems: (db.data.ewasteItems || []).length,
+            allocationHistory: (db.data.allocationHistory || []).length,
+            permanent_allocation: (db.data.permanent_allocation || []).length
+        };
+
+        res.json({ message: 'Database restored successfully', counts });
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Restore failed: ' + error.message });
+    }
+});
+
+// --- Global Error Handler (MUST be registered after ALL routes) ---
+app.use((err, req, res, _next) => {
+    if (err.type === 'entity.too.large') {
+        console.error('[ERROR] Payload too large:', err.message);
+        return res.status(413).json({ error: 'File too large. Please upload smaller files.' });
+    }
+    console.error(`[ERROR] ${req.method} ${req.url}:`, err.message || err);
+    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+});
+
+// --- Graceful Shutdown ---
+process.on('SIGTERM', () => {
+    console.log('[SIGTERM] Shutting down gracefully...');
+    if (server) {
+        server.close(() => {
+            console.log('HTTP server closed.');
+            process.exit(0);
+        });
+        setTimeout(() => process.exit(1), 5000);
+    } else {
+        process.exit(0);
+    }
+});
+
+process.on('SIGINT', () => {
+    console.log('[SIGINT] Shutting down gracefully...');
+    if (server) {
+        server.close(() => {
+            console.log('HTTP server closed.');
+            process.exit(0);
+        });
+        setTimeout(() => process.exit(1), 5000);
+    } else {
+        process.exit(0);
+    }
+});
+
+/**
+ * Reinitialize database with a new path
+ */
+export async function updateDatabase(newPath) {
+    process.env.DEADSTOCK_DB_PATH = newPath;
+    process.env.DEADSTOCK_UPLOADS_PATH = newPath.replace('.deadstock', '_files');
+    await initDatabase(newPath);
+    ensureUploadsDir();
+    console.log(`Database switched to: ${newPath}`);
+}
+
+// Auto-start server if run directly (not imported by Electron)
+// Auto-start server if run directly (not imported by Electron)
+const isMainModule = import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`;
+const forceStart = process.argv.includes('--start');
+
+if (isMainModule || forceStart) {
+    console.log('Starting server (Triggered by main module check or --start flag)...');
+    console.log(`ENV: DB_PATH=${process.env.DEADSTOCK_DB_PATH}`);
+    console.log(`ENV: UPLOADS_PATH=${process.env.DEADSTOCK_UPLOADS_PATH}`);
+    startServer();
+}
+
+export { app };
