@@ -319,8 +319,8 @@ const Allocation = () => {
                 <p>Manage and track hardware assignments</p>
             </div>
 
-            <div className="toolbar" style={{ flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="toolbar">
+                <div className="toolbar-actions">
                     <button className="btn btn-outline" onClick={() => fileInputRef.current.click()}>
                         <FontAwesomeIcon icon={faFileExcel} /> Bulk Upload
                     </button>
@@ -330,7 +330,7 @@ const Allocation = () => {
                     <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx, .xls" onChange={handleBulkUpload} />
                 </div>
 
-                <div className="search-bar" style={{ width: '100%', maxWidth: '850px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="toolbar-actions">
                     <select
                         className="form-select"
                         value={filterItemName}
@@ -486,7 +486,7 @@ const Allocation = () => {
                                 <datalist id="employee-list">
                                     {employees.map(e => <option key={e.PIN} value={e.PIN}>{e.Name}</option>)}
                                 </datalist>
-                                <p style={{ fontSize: '0.8em', color: '#666', marginTop: '5px' }}>Tip: Clear the field to move item back to STOCK.</p>
+                                <p className="text-muted text-xs mt-sm">Tip: Clear the field to move item back to STOCK.</p>
                             </div>
 
                             {selectedEmployee && (
@@ -499,7 +499,7 @@ const Allocation = () => {
                                 </div>
                             )}
 
-                            <div className="form-group" style={{ marginTop: '20px' }}>
+                            <div className="form-group mt-lg">
                                 <label>Issued Date *</label>
                                 <input
                                     type="date"
@@ -507,12 +507,12 @@ const Allocation = () => {
                                     value={allocationForm.Issued_Date}
                                     onChange={e => setAllocationForm({ ...allocationForm, Issued_Date: e.target.value })}
                                 />
-                                <p style={{ fontSize: '0.8em', color: '#666', marginTop: '5px' }}>
+                                <p className="text-muted text-xs mt-sm">
                                     {allocationForm.PIN ? 'Date when device was issued to employee' : 'Date when device was moved to STOCK'}
                                 </p>
                             </div>
 
-                            <div className="form-group" style={{ marginTop: '15px' }}>
+                            <div className="form-group mt-lg">
                                 <label>Issued Location</label>
                                 <input
                                     type="text"
@@ -525,7 +525,7 @@ const Allocation = () => {
                                 <datalist id="sections-list">
                                     {sectionsConfig.map(s => <option key={s} value={s} />)}
                                 </datalist>
-                                <p style={{ fontSize: '0.8em', color: '#666', marginTop: '5px' }}>Sections from Employee Configuration (Manage Options)</p>
+                                <p className="text-muted text-xs mt-sm">Sections from Employee Configuration (Manage Options)</p>
                             </div>
                         </div>
                         <div className="modal-footer">
@@ -541,19 +541,19 @@ const Allocation = () => {
             {/* History Modal */}
             {showHistoryModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '800px' }}>
+                    <div className="modal-content modal-lg">
                         <div className="modal-header">
                             <h3>Allocation History - {selectedItem?.EDP_Serial}</h3>
                             <button className="close-btn" onClick={() => setShowHistoryModal(false)}><FontAwesomeIcon icon={faTimes} /></button>
                         </div>
                         <div className="modal-body">
-                            <p style={{ marginBottom: '15px', color: '#666' }}>
+                            <p className="helper-text mb-lg">
                                 <strong>Item:</strong> {selectedItem?.Item_Name} ({selectedItem?.EDP_Serial})
                             </p>
                             {historyLoading ? (
                                 <p>Loading history...</p>
                             ) : historyData.length === 0 ? (
-                                <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No allocation history found for this item.</p>
+                                <p className="empty-state">No allocation history found for this item.</p>
                             ) : (
                                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                                     <table className="supplier-table">

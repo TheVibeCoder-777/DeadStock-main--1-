@@ -245,9 +245,9 @@ const HardwareConfig = () => {
                 <p>Define Hardware Categories, Prefixes, Manufacturer Names, and Capacity options.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginTop: '20px' }}>
+            <div className="grid-2-col" style={{ gap: '30px', marginTop: '20px' }}>
                 {/* Hardware Categories Section */}
-                <div className="card" style={{ padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+                <div className="card config-card">
                     <h3>Hardware Categories</h3>
                     <div className="form-group">
                         <label>Category Name (e.g., PROJECTOR)</label>
@@ -258,11 +258,11 @@ const HardwareConfig = () => {
                         <input type="text" className="form-input" value={prefix} onChange={e => setPrefix(e.target.value)} />
                         <small>Serial Numbers will look like: PROJ0001</small>
                     </div>
-                    <button className="btn btn-primary" onClick={handleAdd} style={{ marginTop: '10px' }}>
+                    <button className="btn btn-primary mt-md" onClick={handleAdd}>
                         <FontAwesomeIcon icon={faPlus} /> Add Category
                     </button>
 
-                    <div style={{ marginTop: '20px' }}>
+                    <div className="mt-lg">
                         <h4>Existing Categories</h4>
                         <table className="supplier-table">
                             <thead><tr><th>Category</th><th>Prefix</th></tr></thead>
@@ -280,14 +280,14 @@ const HardwareConfig = () => {
 
                 {/* Capacity Configuration Section */}
                 <div style={{ position: 'relative' }}>
-                    <div className="card" style={{ position: 'absolute', inset: 0, padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column' }}>
+                    <div className="card config-card" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
                         <h3>Capacity / Model Configuration</h3>
-                        <p style={{ fontSize: '0.9em', color: '#666', marginBottom: '15px' }}>
+                        <p className="helper-text" style={{ marginBottom: '15px' }}>
                             Manage capacity/model options grouped by Item Name. Editing a value here updates all existing items.
                         </p>
 
                         {/* Add New Capacity + Filter */}
-                        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div className="flex-row gap-md items-center flex-wrap mb-lg">
                             <select
                                 className="form-select"
                                 value={newCapItem}
@@ -311,8 +311,8 @@ const HardwareConfig = () => {
                             </button>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 600, whiteSpace: 'nowrap', fontSize: '0.9em' }}>Filter:</label>
+                        <div className="flex-row items-center gap-sm mb-lg">
+                            <label className="text-semibold text-nowrap text-sm">Filter:</label>
                             <select
                                 className="form-select"
                                 value={capFilter}
@@ -333,18 +333,18 @@ const HardwareConfig = () => {
                             <table className="supplier-table" style={{ fontSize: '0.9em' }}>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: '40px' }}>#</th>
+                                        <th className="col-checkbox">#</th>
                                         <th>Item</th>
                                         <th>Capacity / Model</th>
-                                        <th style={{ width: '90px', textAlign: 'center' }}>Actions</th>
+                                        <th className="col-actions text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredCapacity.length > 0 ? (
                                         filteredCapacity.map((cap, idx) => (
                                             <tr key={`${cap.Item_Name}-${cap.Capacity}`}>
-                                                <td style={{ color: '#999' }}>{idx + 1}</td>
-                                                <td style={{ fontWeight: 600 }}>{cap.Item_Name}</td>
+                                                <td className="text-muted">{idx + 1}</td>
+                                                <td className="text-semibold">{cap.Item_Name}</td>
                                                 <td>
                                                     {editingCap && editingCap.Item_Name === cap.Item_Name && editingCap.Capacity === cap.Capacity ? (
                                                         <input
@@ -363,9 +363,9 @@ const HardwareConfig = () => {
                                                         cap.Capacity
                                                     )}
                                                 </td>
-                                                <td style={{ textAlign: 'center' }}>
+                                                <td className="text-center">
                                                     {editingCap && editingCap.Item_Name === cap.Item_Name && editingCap.Capacity === cap.Capacity ? (
-                                                        <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                                                        <div className="action-buttons">
                                                             <button className="btn-icon edit" onClick={handleEditCapacity} title="Save">
                                                                 <FontAwesomeIcon icon={faSave} />
                                                             </button>
@@ -374,7 +374,7 @@ const HardwareConfig = () => {
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                                                        <div className="action-buttons">
                                                             <button className="btn-icon edit" onClick={() => startEditCap(cap)} title="Edit">
                                                                 <FontAwesomeIcon icon={faEdit} />
                                                             </button>
@@ -388,7 +388,7 @@ const HardwareConfig = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="4" style={{ textAlign: 'center', color: '#999', fontStyle: 'italic', padding: '20px' }}>
+                                            <td colSpan="4" className="empty-state">
                                                 No capacity entries found
                                             </td>
                                         </tr>
@@ -401,12 +401,12 @@ const HardwareConfig = () => {
             </div>
 
             {/* Make/Company Section — Full Width */}
-            <div className="card" style={{ padding: '20px', marginTop: '30px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+            <div className="card config-card" style={{ marginTop: '30px' }}>
                 <h3>Company/Brand Names (Make)</h3>
-                <p style={{ fontSize: '0.9em', color: '#666', marginBottom: '15px' }}>
+                <p className="helper-text" style={{ marginBottom: '15px' }}>
                     Manage the list of companies that appear in the "Make" dropdown when adding or editing hardware.
                 </p>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                <div className="toolbar-actions" style={{ marginBottom: '20px' }}>
                     <input
                         type="text"
                         className="form-input"
@@ -423,7 +423,7 @@ const HardwareConfig = () => {
 
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                     <table className="supplier-table">
-                        <thead><tr><th>Company Name</th><th style={{ width: '60px' }}>Action</th></tr></thead>
+                        <thead><tr><th>Company Name</th><th className="col-id">Action</th></tr></thead>
                         <tbody>
                             {makes.map((make, i) => (
                                 <tr key={i}>
@@ -441,12 +441,12 @@ const HardwareConfig = () => {
             </div>
 
             {/* Column Visibility Configuration */}
-            <div className="card" style={{ padding: '20px', marginTop: '30px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+            <div className="card config-card" style={{ marginTop: '30px' }}>
                 <h3>Column Visibility Configuration</h3>
-                <p style={{ fontSize: '0.9em', color: '#666', marginBottom: '15px' }}>
+                <p className="helper-text" style={{ marginBottom: '15px' }}>
                     Configure which columns are visible for each hardware category. By default, all columns are visible.
                 </p>
-                <table className="supplier-table" style={{ fontSize: '0.9em' }}>
+                <table className="supplier-table text-sm">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -485,7 +485,7 @@ const HardwareConfig = () => {
                             );
                         }) : (
                             <tr>
-                                <td colSpan="5" style={{ textAlign: 'center', color: '#999', fontStyle: 'italic', padding: '20px' }}>
+                                <td colSpan="5" className="empty-state">
                                     No categories found. Add categories above first.
                                 </td>
                             </tr>
@@ -503,10 +503,10 @@ const HardwareConfig = () => {
                                 <h3>Column Visibility — {colVisCategory}</h3>
                             </div>
                             <div className="modal-body">
-                                <p style={{ fontSize: '0.9em', color: '#666', marginBottom: '15px' }}>
+                                <p className="helper-text" style={{ marginBottom: '15px' }}>
                                     Uncheck columns to <strong>hide</strong> them from the table, edit form, and add wizard for <strong>{colVisCategory}</strong>.
                                 </p>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div className="grid-2-col" style={{ gap: '12px' }}>
                                     {ALL_COLUMNS.map(col => {
                                         const isHidden = colVisSelection.includes(col);
                                         return (

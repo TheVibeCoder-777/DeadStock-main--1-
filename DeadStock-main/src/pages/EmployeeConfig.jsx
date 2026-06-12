@@ -31,9 +31,9 @@ const ConfigSection = ({ title, type, items, newItemValue, onInputChange, onAdd,
     };
 
     return (
-        <div className="card" style={{ marginBottom: '20px', padding: '20px' }}>
-            <h3 style={{ marginBottom: '15px' }}>{title}</h3>
-            <div className="form-row" style={{ marginBottom: '15px' }}>
+        <div className="card config-card mb-lg">
+            <h3 className="mb-lg">{title}</h3>
+            <div className="form-row mb-lg">
                 <input
                     type="text"
                     className="form-input"
@@ -47,12 +47,12 @@ const ConfigSection = ({ title, type, items, newItemValue, onInputChange, onAdd,
                 </button>
             </div>
             <div className="table-responsive" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                <table className="supplier-table" style={{ fontSize: '0.9em' }}>
+                <table className="supplier-table text-sm">
                     <thead>
                         <tr>
-                            <th style={{ width: '50px' }}>#</th>
+                            <th className="col-checkbox">#</th>
                             <th>Name</th>
-                            <th style={{ width: '100px', textAlign: 'center' }}>Actions</th>
+                            <th className="col-actions text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -61,7 +61,7 @@ const ConfigSection = ({ title, type, items, newItemValue, onInputChange, onAdd,
                                 .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
                                 .map((item, idx) => (
                                     <tr key={item}>
-                                        <td style={{ color: '#999' }}>{idx + 1}</td>
+                                        <td className="text-muted">{idx + 1}</td>
                                         <td>
                                             {editingItem === item ? (
                                                 <input
@@ -77,9 +77,9 @@ const ConfigSection = ({ title, type, items, newItemValue, onInputChange, onAdd,
                                                 item
                                             )}
                                         </td>
-                                        <td style={{ textAlign: 'center' }}>
+                                        <td className="text-center">
                                             {editingItem === item ? (
-                                                <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                                                <div className="action-buttons">
                                                     <button className="btn-icon edit" onClick={saveEdit} title="Save">
                                                         <FontAwesomeIcon icon={faSave} />
                                                     </button>
@@ -88,7 +88,7 @@ const ConfigSection = ({ title, type, items, newItemValue, onInputChange, onAdd,
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                                                <div className="action-buttons">
                                                     <button className="btn-icon edit" onClick={() => startEdit(item)} title="Edit">
                                                         <FontAwesomeIcon icon={faEdit} />
                                                     </button>
@@ -102,7 +102,7 @@ const ConfigSection = ({ title, type, items, newItemValue, onInputChange, onAdd,
                                 ))
                         ) : (
                             <tr>
-                                <td colSpan="3" style={{ textAlign: 'center', color: '#999', fontStyle: 'italic', padding: '20px' }}>
+                                <td colSpan="3" className="empty-state">
                                     No items added yet
                                 </td>
                             </tr>
@@ -110,7 +110,7 @@ const ConfigSection = ({ title, type, items, newItemValue, onInputChange, onAdd,
                     </tbody>
                 </table>
             </div>
-            <div style={{ marginTop: '8px', fontSize: '0.8em', color: '#999' }}>
+            <div className="text-muted text-xs mt-sm">
                 {items?.length || 0} item(s)
             </div>
         </div>
@@ -221,7 +221,7 @@ const EmployeeConfig = () => {
                 <p>Manage list items for Employee dropdowns. Editing a value here will also update all employees using that value.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div className="grid-2-col" style={{ gap: '20px' }}>
                 <ConfigSection
                     title="Present Posts"
                     type="posts"

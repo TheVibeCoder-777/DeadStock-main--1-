@@ -91,6 +91,19 @@ const formatExcelDate = (val) => {
     return val ? String(val) : '';
 };
 
+// --- Shared Helper: Normalize PIN for comparison (strip leading zeros, trim) ---
+const normalizePin = (s) => String(s || '').trim().replace(/^0+/, '');
+
+// --- Shared Helper: Convert YYYY-MM-DD to DD-MM-YYYY; passthrough other formats ---
+const formatDateDDMMYYYY = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = String(dateStr).split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dateStr;
+};
+
 const app = express();
 const port = 3001;
 
@@ -1435,11 +1448,11 @@ app.get('/api/hardware/download-buffer', async (req, res) => {
 
         if (category) data = data.filter(h => h.Category === category);
 
-        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
 
         const excelData = data.map(item => {
             const invoice = invoices.find(inv => inv.Bill_Number === item.Bill_Number);
-            const emp = employees.find(e => normalize(e.PIN) === normalize(item.Allocated_To));
+            const emp = employees.find(e => normalizePin(e.PIN) === normalizePin(item.Allocated_To));
             return {
                 'Category': item.Category,
                 'Item Name': item.Item_Name,
@@ -1521,21 +1534,11 @@ app.get('/api/allocation/download', async (req, res) => {
         const employees = db.data.employees || [];
         const invoices = db.data.invoices || [];
 
-        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
 
-        // Helper to convert YYYY-MM-DD to DD-MM-YYYY
-        const formatDateDDMMYYYY = (dateStr) => {
-            if (!dateStr) return '';
-            const parts = String(dateStr).split('-');
-            if (parts.length === 3 && parts[0].length === 4) {
-                return `${parts[2]}-${parts[1]}-${parts[0]}`;
-            }
-            return dateStr;
-        };
 
         // Create enriched data with employee and invoice details
         const enrichedData = hardware.map(h => {
-            const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+            const emp = employees.find(e => normalizePin(e.PIN) === normalizePin(h.Allocated_To));
             const inv = invoices.find(i => i.Bill_Number === h.Bill_Number);
 
             return {
@@ -1578,19 +1581,10 @@ app.get('/api/allocation/download-buffer', async (req, res) => {
         const employees = db.data.employees || [];
         const invoices = db.data.invoices || [];
 
-        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
 
-        const formatDateDDMMYYYY = (dateStr) => {
-            if (!dateStr) return '';
-            const parts = String(dateStr).split('-');
-            if (parts.length === 3 && parts[0].length === 4) {
-                return `${parts[2]}-${parts[1]}-${parts[0]}`;
-            }
-            return dateStr;
-        };
 
         const enrichedData = hardware.map(h => {
-            const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+            const emp = employees.find(e => normalizePin(e.PIN) === normalizePin(h.Allocated_To));
             const inv = invoices.find(i => i.Bill_Number === h.Bill_Number);
             return {
                 'Item Name': h.Item_Name,
@@ -2966,37 +2960,9 @@ app.post('/api/permanent-allocation/transfer', upload.single('notesheet'), async
                 // Determine PIN (Allocated_To or Issued_To)
                 const pin = item.Allocated_To || item.Issued_To || '';
 
-                // DEBUG LOGGING
-                console.log('\n=== TRANSFER DEBUG ===');
-                console.log('Hardware Item ID:', item.id);
-                console.log('Hardware EDP Serial:', item.EDP_Serial);
-                console.log('Raw Allocated_To:', item.Allocated_To);
-                console.log('Raw Issued_To:', item.Issued_To);
-                console.log('Selected PIN:', pin);
-                console.log('Total Employees Loaded:', employees.length);
-
                 // Lookup Employee (robust comparison handling leading zeros)
-                const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
-                const targetPin = normalize(pin);
-                console.log('Normalized Target PIN:', targetPin);
-
-                // Log first 3 employees for comparison
-                console.log('Sample Employee PINs:', employees.slice(0, 3).map(e => ({
-                    raw: e.PIN,
-                    normalized: normalize(e.PIN),
-                    name: e.Name || e['Employee Name']
-                })));
-
-                const emp = employees.find(e => normalize(e.PIN) === targetPin);
-                console.log('Employee Found:', !!emp);
-                if (emp) {
-                    console.log('Employee Details:', {
-                        PIN: emp.PIN,
-                        Name: emp.Name || emp['Employee Name'],
-                        Post: emp.Present_Post || emp['Present Post'] || emp.Designation
-                    });
-                }
-                console.log('=== END DEBUG ===\n');
+                const targetPin = normalizePin(pin);
+                const emp = employees.find(e => normalizePin(e.PIN) === targetPin);
 
                 // Lookup Invoice for Purchase Date if missing
                 const invoice = invoices.find(i => i.Bill_Number === item.Bill_Number);
@@ -3136,7 +3102,7 @@ app.get('/api/dashboard/noc-search', async (req, res) => {
             return res.json(null);
         }
 
-        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
 
         // Build results for each matched employee
         const results = matchedEmployees.map(employee => {
@@ -3151,11 +3117,11 @@ app.get('/api/dashboard/noc-search', async (req, res) => {
             };
 
             // Find all hardware issued to this employee
-            const targetPin = normalize(employee.PIN);
+            const targetPin = normalizePin(employee.PIN);
 
             const issuedHardware = hardware.filter(hw => {
-                const issuedTo = normalize(hw.Issued_To);
-                const allocatedTo = normalize(hw.Allocated_To);
+                const issuedTo = normalizePin(hw.Issued_To);
+                const allocatedTo = normalizePin(hw.Allocated_To);
                 return issuedTo === targetPin || allocatedTo === targetPin;
             });
 
@@ -3195,7 +3161,7 @@ app.get('/api/dashboard/retirement-suggestions', async (req, res) => {
         const employees = db.data.employees || [];
         const hardware = db.data.hardware || [];
 
-        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
 
         // Helper to parse date from various formats (Excel serial, DD-MM-YYYY, YYYY-MM-DD)
         const parseDate = (val) => {
@@ -3258,12 +3224,12 @@ app.get('/api/dashboard/retirement-suggestions', async (req, res) => {
         const withoutHardware = [];
 
         retiredEmployees.forEach(emp => {
-            const targetPin = normalize(emp.PIN);
+            const targetPin = normalizePin(emp.PIN);
 
             // Find hardware issued to this employee
             const employeeHardware = hardware.filter(hw => {
-                const issuedTo = normalize(hw.Issued_To);
-                const allocatedTo = normalize(hw.Allocated_To);
+                const issuedTo = normalizePin(hw.Issued_To);
+                const allocatedTo = normalizePin(hw.Allocated_To);
                 return issuedTo === targetPin || allocatedTo === targetPin;
             });
 
@@ -3444,58 +3410,7 @@ app.put('/api/dashboard/hardware-status/update', async (req, res) => {
     }
 });
 
-// TEST ENDPOINT - verify server is running updated code
-app.get('/api/test-delete-debug', async (req, res) => {
-    console.log('TEST ENDPOINT HIT!');
-    await db.read();
-    const employees = db.data.employees || [];
-    const sample = employees.slice(0, 2);
-    console.log('Sample employees:', JSON.stringify(sample, null, 2));
-    res.json({ message: 'Test endpoint working', totalEmployees: employees.length, sample });
-});
 
-// Delete Employee - Remove employee from directory
-app.delete('/api/employees/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        console.log('DELETE /api/employees/:id - Received ID:', id);
-        await db.read();
-
-        const employees = db.data.employees || [];
-        console.log('Total employees:', employees.length);
-        const index = employees.findIndex(emp => {
-            const idMatch = String(emp.id) === String(id);
-            const pinMatch = String(emp.PIN) === String(id);
-            const matches = idMatch || pinMatch;
-            if (matches) console.log('Match found:', emp.PIN, emp.Name, '(matched by:', idMatch ? 'id' : 'PIN', ')');
-            return matches;
-        });
-
-        if (index === -1) {
-            console.log('NOT FOUND - Looking for ID:', id);
-            console.log('First 3 employees:', employees.slice(0, 3).map(e => ({ id: e.id, PIN: e.PIN, Name: e.Name })));
-            return res.status(404).json({
-                error: 'Employee not found',
-                searchedId: id,
-                totalEmployees: employees.length,
-                sampleIds: employees.slice(0, 5).map(e => ({ id: e.id, PIN: e.PIN }))
-            });
-        }
-
-        // Remove employee
-        const deletedEmployee = employees.splice(index, 1)[0];
-        db.data.employees = employees;
-
-        await db.write();
-        res.json({
-            message: 'Employee deleted successfully',
-            employee: deletedEmployee
-        });
-    } catch (error) {
-        console.error('Context:', error.message || error);
-        res.status(500).json({ error: 'Failed to delete employee' });
-    }
-});
 
 
 // Server instance for Electron control
@@ -3615,9 +3530,8 @@ app.get('/api/backup/full', async (req, res) => {
         }
 
         // Hardware Allocation (Enriched)
-        const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
         const allocEnriched = hardware.map(h => {
-            const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+            const emp = employees.find(e => normalizePin(e.PIN) === normalizePin(h.Allocated_To));
             const inv = invoices.find(i => i.Bill_Number === h.Bill_Number);
             return {
                 'Item Name': h.Item_Name,

@@ -226,51 +226,39 @@ const Dashboard = () => {
             </div>
 
             {/* Stock Info Tiles */}
-            <div className="card" style={{ marginBottom: '30px' }}>
+            <div className="card dashboard-card">
                 <div className="card-header">
                     <h2><FontAwesomeIcon icon={faBox} /> Stock Information</h2>
-                    <button className="btn btn-outline" onClick={fetchStockData} style={{ marginLeft: 'auto' }}>
+                    <button className="btn btn-outline ml-auto" onClick={fetchStockData}>
                         <FontAwesomeIcon icon={faSync} /> Refresh
                     </button>
                 </div>
                 <div className="card-body">
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+                    <div className="dashboard-tile-grid">
                         {/* Total Count Tile */}
-                        <div className="stock-tile" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', padding: '20px', borderRadius: '8px', textAlign: 'center', cursor: 'default' }}>
-                            <div style={{ fontSize: '2em', fontWeight: 'bold' }}>{stockData.totalCount || 0}</div>
-                            <div style={{ fontSize: '0.9em', marginTop: '5px' }}>Total Items in Stock</div>
+                        <div className="stock-tile tile-total no-click">
+                            <div className="tile-value">{stockData.totalCount || 0}</div>
+                            <div className="tile-label">Total Items in Stock</div>
                         </div>
 
                         {/* Item Tiles */}
                         {stockData.items.map((item, idx) => (
                             <div
                                 key={idx}
-                                className="stock-tile"
+                                className={`stock-tile tile-item${selectedItem === item.Item_Name ? ' selected' : ''}`}
                                 onClick={() => handleTileClick(item.Item_Name)}
-                                style={{
-                                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                                    color: 'white',
-                                    padding: '20px',
-                                    borderRadius: '8px',
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    transition: 'transform 0.2s, box-shadow 0.2s',
-                                    boxShadow: selectedItem === item.Item_Name ? '0 8px 16px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                             >
-                                <div style={{ fontSize: '2em', fontWeight: 'bold' }}>{item.Count}</div>
-                                <div style={{ fontSize: '0.9em', marginTop: '5px' }}>{item.Item_Name}</div>
+                                <div className="tile-value">{item.Count}</div>
+                                <div className="tile-label">{item.Item_Name}</div>
                             </div>
                         ))}
                     </div>
 
                     {/* Bifurcation Modal/View */}
                     {bifurcationData && (
-                        <div style={{ marginTop: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                <h3 style={{ margin: 0, color: '#2c3e50' }}>{bifurcationData.item} - Detailed List ({bifurcationData.items.length} items)</h3>
+                        <div className="detail-panel" style={{ marginTop: '30px' }}>
+                            <div className="detail-panel-header">
+                                <h3>{bifurcationData.item} - Detailed List ({bifurcationData.items.length} items)</h3>
                                 <button className="btn btn-secondary" onClick={() => setBifurcationData(null)}>Close</button>
                             </div>
                             <div className="table-responsive">
@@ -311,105 +299,57 @@ const Dashboard = () => {
             </div>
 
             {/* Hardware Status Tiles */}
-            <div className="card" style={{ marginBottom: '30px' }}>
+            <div className="card dashboard-card">
                 <div className="card-header">
                     <h2><FontAwesomeIcon icon={faWrench} /> Hardware Status</h2>
-                    <button className="btn btn-outline" onClick={fetchHardwareStatus} style={{ marginLeft: 'auto' }}>
+                    <button className="btn btn-outline ml-auto" onClick={fetchHardwareStatus}>
                         <FontAwesomeIcon icon={faSync} /> Refresh
                     </button>
                 </div>
                 <div className="card-body">
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+                    <div className="dashboard-tile-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
                         {/* Under Repair Tile */}
                         <div
-                            className="stock-tile"
+                            className={`stock-tile tile-under-repair${selectedStatusType === 'Under Repair' ? ' selected' : ''}`}
                             onClick={() => handleStatusTileClick('Under Repair')}
-                            style={{
-                                background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
-                                color: '#6d4c00',
-                                padding: '20px',
-                                borderRadius: '8px',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s, box-shadow 0.2s',
-                                boxShadow: selectedStatusType === 'Under Repair' ? '0 8px 16px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
-                            <div style={{ fontSize: '2em', fontWeight: 'bold' }}>{statusCounts.underRepairCount || 0}</div>
-                            <div style={{ fontSize: '0.9em', marginTop: '5px', fontWeight: 600 }}>Under Repair</div>
+                            <div className="tile-value">{statusCounts.underRepairCount || 0}</div>
+                            <div className="tile-label-bold">Under Repair</div>
                         </div>
 
                         {/* Not Working Tile */}
                         <div
-                            className="stock-tile"
+                            className={`stock-tile tile-not-working${selectedStatusType === 'Not Working' ? ' selected' : ''}`}
                             onClick={() => handleStatusTileClick('Not Working')}
-                            style={{
-                                background: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)',
-                                color: '#b71c1c',
-                                padding: '20px',
-                                borderRadius: '8px',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s, box-shadow 0.2s',
-                                boxShadow: selectedStatusType === 'Not Working' ? '0 8px 16px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
-                            <div style={{ fontSize: '2em', fontWeight: 'bold' }}>{statusCounts.notWorkingCount || 0}</div>
-                            <div style={{ fontSize: '0.9em', marginTop: '5px', fontWeight: 600 }}>Not Working</div>
+                            <div className="tile-value">{statusCounts.notWorkingCount || 0}</div>
+                            <div className="tile-label-bold">Not Working</div>
                         </div>
 
                         {/* Server Room Tile */}
                         <div
-                            className="stock-tile"
+                            className={`stock-tile tile-info${selectedStatusType === 'Server Room' ? ' selected' : ''}`}
                             onClick={() => handleStatusTileClick('Server Room', true)}
-                            style={{
-                                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-                                color: '#0d47a1',
-                                padding: '20px',
-                                borderRadius: '8px',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s, box-shadow 0.2s',
-                                boxShadow: selectedStatusType === 'Server Room' ? '0 8px 16px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
-                            <div style={{ fontSize: '2em', fontWeight: 'bold' }}>{statusCounts.serverRoomCount || 0}</div>
-                            <div style={{ fontSize: '0.9em', marginTop: '5px', fontWeight: 600 }}>Server Room</div>
+                            <div className="tile-value">{statusCounts.serverRoomCount || 0}</div>
+                            <div className="tile-label-bold">Server Room</div>
                         </div>
 
                         {/* E-Waste Store Tile */}
                         <div
-                            className="stock-tile"
+                            className={`stock-tile tile-info${selectedStatusType === 'E-Waste Store' ? ' selected' : ''}`}
                             onClick={() => handleStatusTileClick('E-Waste Store', true)}
-                            style={{
-                                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-                                color: '#0d47a1',
-                                padding: '20px',
-                                borderRadius: '8px',
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s, box-shadow 0.2s',
-                                boxShadow: selectedStatusType === 'E-Waste Store' ? '0 8px 16px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
-                            <div style={{ fontSize: '2em', fontWeight: 'bold' }}>{statusCounts.eWasteCount || 0}</div>
-                            <div style={{ fontSize: '0.9em', marginTop: '5px', fontWeight: 600 }}>E-Waste Store</div>
+                            <div className="tile-value">{statusCounts.eWasteCount || 0}</div>
+                            <div className="tile-label-bold">E-Waste Store</div>
                         </div>
                     </div>
 
                     {/* Status Detail Table */}
                     {statusDetailList && (
-                        <div style={{ marginTop: '20px', padding: '20px', background: '#f8f9fa', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                <h3 style={{ margin: 0, color: '#2c3e50' }}>
+                        <div className="detail-panel">
+                            <div className="detail-panel-header">
+                                <h3>
                                     {statusDetailList.status} — Detailed List ({statusDetailList.items?.length || 0} items)
                                 </h3>
                                 <button className="btn btn-secondary" onClick={() => { setStatusDetailList(null); setSelectedStatusType(null); }}>Close</button>
@@ -461,7 +401,7 @@ const Dashboard = () => {
                                                     <select
                                                         value={item.Status}
                                                         onChange={(e) => handleStatusChange(item.id, e.target.value)}
-                                                        style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.85em' }}
+                                                        className="select-compact"
                                                     >
                                                         <option value="Working">Working</option>
                                                         <option value="Under Repair">Under Repair</option>
@@ -479,13 +419,13 @@ const Dashboard = () => {
             </div>
 
             {/* NOC Search Section */}
-            <div className="card" style={{ marginBottom: '30px' }}>
+            <div className="card dashboard-card">
                 <div className="card-header">
                     <h2><FontAwesomeIcon icon={faFileAlt} /> NOC (No Objection Certificate)</h2>
-                    <p style={{ fontSize: '0.9em', color: '#666', margin: '5px 0 0 0' }}>Search employee by PIN or Name to view details and issued hardware</p>
+                    <p className="helper-text" style={{ margin: '5px 0 0 0' }}>Search employee by PIN or Name to view details and issued hardware</p>
                 </div>
                 <div className="card-body">
-                    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                    <div className="toolbar-actions" style={{ marginBottom: '20px' }}>
                         <input
                             type="text"
                             className="form-input"
@@ -515,7 +455,7 @@ const Dashboard = () => {
                                     <h3 style={{ marginBottom: '15px', color: '#2c3e50' }}>
                                         Employee {nocResult.employees.length > 1 ? `#${empIdx + 1}` : ''} Details
                                     </h3>
-                                    <table className="supplier-table" style={{ marginBottom: '30px' }}>
+                                    <table className="supplier-table mb-xl">
                                         <thead>
                                             <tr>
                                                 <th>PIN</th>
@@ -539,7 +479,7 @@ const Dashboard = () => {
                                     </table>
 
                                     {/* Hardware List */}
-                                    <h3 style={{ marginBottom: '15px', color: '#2c3e50' }}>Issued Hardware</h3>
+                                    <h3 className="section-heading" style={{ color: '#2c3e50' }}>Issued Hardware</h3>
                                     {result.hardware.length > 0 ? (
                                         <div className="table-responsive">
                                             <table className="supplier-table">
@@ -572,7 +512,7 @@ const Dashboard = () => {
                                             </table>
                                         </div>
                                     ) : (
-                                        <p style={{ color: '#666', fontStyle: 'italic' }}>No hardware issued to this employee</p>
+                                        <p className="no-items-text">No hardware issued to this employee</p>
                                     )}
                                 </div>
                             ))}
@@ -580,23 +520,23 @@ const Dashboard = () => {
                     )}
 
                     {nocSearched && nocResult && nocResult.employees && nocResult.employees.length === 0 && (
-                        <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>No employee found</p>
+                        <p className="empty-state">No employee found</p>
                     )}
                 </div>
             </div>
 
             {/* Retirement Suggestions Section */}
-            <div className="card" style={{ marginBottom: '30px' }}>
+            <div className="card dashboard-card">
                 <div className="card-header">
                     <h2><FontAwesomeIcon icon={faExclamationTriangle} /> Retirement Suggestions</h2>
-                    <button className="btn btn-outline" onClick={fetchRetirementSuggestions} style={{ marginLeft: 'auto' }}>
+                    <button className="btn btn-outline ml-auto" onClick={fetchRetirementSuggestions}>
                         <FontAwesomeIcon icon={faSync} /> Refresh
                     </button>
                 </div>
                 <div className="card-body">
                     {/* Retired with Hardware */}
-                    <div style={{ marginBottom: '30px' }}>
-                        <h3 style={{ marginBottom: '15px', color: '#e74c3c' }}>
+                    <div className="mb-xl">
+                        <h3 className="section-heading" style={{ color: '#e74c3c' }}>
                             <FontAwesomeIcon icon={faExclamationTriangle} /> Retired Employees with Hardware ({retirementSuggestions.withHardware.length})
                         </h3>
                         {retirementSuggestions.withHardware.length > 0 ? (
@@ -621,7 +561,7 @@ const Dashboard = () => {
                                                 <td>{item.Name}</td>
                                                 <td>{formatDate(item.Retirement_Date)}</td>
                                                 <td>
-                                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                                    <div className="action-buttons">
                                                         <button
                                                             className="btn btn-sm btn-primary"
                                                             onClick={() => handleMoveToStock(item.hardware_id)}
@@ -644,13 +584,13 @@ const Dashboard = () => {
                                 </table>
                             </div>
                         ) : (
-                            <p style={{ color: '#27ae60', fontStyle: 'italic' }}>✓ No retired employees with hardware</p>
+                            <p className="text-success-italic">✓ No retired employees with hardware</p>
                         )}
                     </div>
 
                     {/* Retired without Hardware */}
                     <div>
-                        <h3 style={{ marginBottom: '15px', color: '#f39c12' }}>
+                        <h3 className="section-heading" style={{ color: '#f39c12' }}>
                             <FontAwesomeIcon icon={faUser} /> Retired Employees without Hardware ({retirementSuggestions.withoutHardware.length})
                         </h3>
                         {retirementSuggestions.withoutHardware.length > 0 ? (
@@ -688,7 +628,7 @@ const Dashboard = () => {
                                 </table>
                             </div>
                         ) : (
-                            <p style={{ color: '#27ae60', fontStyle: 'italic' }}>✓ No retired employees without hardware</p>
+                            <p className="text-success-italic">✓ No retired employees without hardware</p>
                         )}
                     </div>
                 </div>

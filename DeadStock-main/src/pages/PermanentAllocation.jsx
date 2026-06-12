@@ -149,7 +149,7 @@ const PermanentAllocation = () => {
             </div>
 
             <div className="toolbar">
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="toolbar-actions">
                     <button className="btn btn-primary" onClick={startWizard}>
                         <FontAwesomeIcon icon={faPlus} /> Add / Transfer
                     </button>
@@ -182,7 +182,7 @@ const PermanentAllocation = () => {
                 </div>
             </div>
 
-            <div className="table-responsive" style={{ maxHeight: '70vh', overflow: 'auto' }}>
+            <div className="table-responsive max-h-table">
                 <table className="supplier-table">
                     <thead>
                         <tr>
@@ -250,7 +250,7 @@ const PermanentAllocation = () => {
                                     <td>
                                         {item.Notesheet_Doc ? (
                                             <a href={`http://localhost:3001/uploads/${item.Notesheet_Doc}`} target="_blank" rel="noreferrer">
-                                                <FontAwesomeIcon icon={faFilePdf} style={{ color: 'red' }} />
+                                                <FontAwesomeIcon icon={faFilePdf} className="text-icon-pdf" />
                                             </a>
                                         ) : '-'}
                                     </td>
@@ -264,7 +264,7 @@ const PermanentAllocation = () => {
             {/* Transfer Wizard Modal */}
             {showWizard && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '90%', maxWidth: '1000px' }}>
+                    <div className="modal-content modal-xl">
                         <div className="modal-header">
                             <h3>Transfer Hardware (Step {wizardStep} of 3)</h3>
                         </div>
@@ -273,7 +273,7 @@ const PermanentAllocation = () => {
                             {/* Step 1: Select Items */}
                             {wizardStep === 1 && (
                                 <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                    <div className="flex-row justify-between items-center mb-md">
                                         <input
                                             type="text"
                                             className="form-input"
@@ -308,7 +308,7 @@ const PermanentAllocation = () => {
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <div className="flex-row justify-end gap-md" style={{ marginTop: '20px' }}>
                                         <button className="btn btn-primary" disabled={selectedIds.length === 0} onClick={() => setWizardStep(2)}>Next</button>
                                         <button className="btn btn-secondary" onClick={handleWizardClose}>Cancel</button>
                                     </div>
@@ -347,7 +347,7 @@ const PermanentAllocation = () => {
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <div className="flex-row justify-end gap-md" style={{ marginTop: '20px' }}>
                                         <button className="btn btn-outline" onClick={() => setWizardStep(1)}>Back</button>
                                         <button className="btn btn-primary" onClick={() => setWizardStep(3)} disabled={!notesheetFile || (transferDetails.transferType === 'Transferred' && !transferDetails.targetOffice)}>Next</button>
                                         <button className="btn btn-secondary" onClick={handleWizardClose}>Cancel</button>
@@ -368,7 +368,7 @@ const PermanentAllocation = () => {
                                     <div className="alert alert-warning">
                                         Warning: These items will be removed from the active Hardware and Allocation inventory.
                                     </div>
-                                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <div className="flex-row justify-end gap-md" style={{ marginTop: '20px' }}>
                                         <button className="btn btn-outline" onClick={() => setWizardStep(2)}>Back</button>
                                         <button className="btn btn-primary" onClick={handleTransferSubmit}>Proceed</button>
                                         <button className="btn btn-secondary" onClick={handleWizardClose}>Cancel</button>

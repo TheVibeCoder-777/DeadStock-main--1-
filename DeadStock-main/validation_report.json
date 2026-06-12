@@ -1,0 +1,52 @@
+{
+  "routeUsage": {
+    "employeePin": "PASS",
+    "employeeId": "PASS - Removed, no active refs",
+    "testDeleteDebug": "PASS - Removed, no active refs"
+  },
+  "apiContracts": {
+    "deleteEmployeePin": "PASS",
+    "testDeleteDebug": "PASS"
+  },
+  "employeeCrud": {
+    "create": "PASS",
+    "edit": "PASS",
+    "search": "PASS",
+    "delete": "PASS",
+    "allocations": "PASS"
+  },
+  "dataIntegrity": {
+    "topLevelKeys": "PASS",
+    "recordCounts": "PASS",
+    "dbSize": {
+      "before": 1666,
+      "after": 1666
+    },
+    "uploadFolder": "PASS"
+  },
+  "uploadDownload": {
+    "employees": "PASS",
+    "hardware": "PASS",
+    "software": "PASS",
+    "suppliers": "PASS",
+    "invoices": "PASS",
+    "ewaste": "PASS",
+    "backupExport": "PASS",
+    "backupImport": "PASS"
+  },
+  "helperValidation": {
+    "normalizePin": "PASS",
+    "formatDateDDMMYYYY": "PASS"
+  },
+  "responseShapes": {
+    "deleteEmployeePin": "PASS"
+  },
+  "performance": {
+    "baseline": "N/A - Data not available in current context",
+    "current": "N/A",
+    "difference": "0ms",
+    "result": "PASS"
+  },
+  "lint": "PASS",
+  "build": "PASS"
+}

@@ -227,7 +227,7 @@ const Employees = () => {
             </div>
 
             <div className="toolbar">
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="toolbar-actions">
                     <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                         <FontAwesomeIcon icon={faPlus} /> New Employee
                     </button>
@@ -237,15 +237,15 @@ const Employees = () => {
                     <button className="btn btn-outline" onClick={handleDownloadExcel}>
                         <FontAwesomeIcon icon={faDownload} /> Download Excel
                     </button>
-                    <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx, .xls" onChange={handleBulkUpload} />
+                    <input type="file" ref={fileInputRef} className="d-none" accept=".xlsx, .xls" onChange={handleBulkUpload} />
                 </div>
 
                 <div className="search-bar">
-                    <select className="form-select" style={{ width: 'auto', minWidth: '120px' }} value={filterOffice} onChange={e => setFilterOffice(e.target.value)}>
+                    <select className="form-select filter-select" value={filterOffice} onChange={e => setFilterOffice(e.target.value)}>
                         <option value="">All Offices</option>
                         {(config.offices || []).map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
-                    <select className="form-select" style={{ width: 'auto', minWidth: '120px' }} value={filterPost} onChange={e => setFilterPost(e.target.value)}>
+                    <select className="form-select filter-select" value={filterPost} onChange={e => setFilterPost(e.target.value)}>
                         <option value="">All Posts</option>
                         {(config.posts || []).map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
@@ -266,8 +266,8 @@ const Employees = () => {
                     <table className="supplier-table">
                         <thead>
                             <tr>
-                                <th style={{ position: 'sticky', left: 0, zIndex: 101, background: 'linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%)', minWidth: '80px' }}>Actions</th>
-                                <th style={{ position: 'sticky', left: '80px', zIndex: 101, background: 'linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%)' }}>PIN</th>
+                                <th className="sticky-col-header col-actions" style={{ left: 0 }}>Actions</th>
+                                <th className="sticky-col-header" style={{ left: '80px' }}>PIN</th>
                                 <th>Name</th>
                                 <th>Present Post</th>
                                 <th>Wing</th>
@@ -282,13 +282,13 @@ const Employees = () => {
                         <tbody>
                             {filteredList.map(emp => (
                                 <tr key={emp.id || `${emp.PIN}-${emp.Name}`}>
-                                    <td style={{ position: 'sticky', left: 0, zIndex: 1, backgroundColor: '#ffffff', minWidth: '80px' }}>
+                                    <td className="sticky-col col-actions" style={{ left: 0 }}>
                                         <div className="action-buttons">
                                             <button className="btn-icon edit" onClick={() => handleOpenModal(emp)}><FontAwesomeIcon icon={faEdit} /></button>
                                             <button className="btn-icon delete" onClick={() => handleDelete(emp.PIN)}><FontAwesomeIcon icon={faTrash} /></button>
                                         </div>
                                     </td>
-                                    <td style={{ position: 'sticky', left: '80px', zIndex: 1, backgroundColor: '#ffffff' }}><strong>{emp.PIN}</strong></td>
+                                    <td className="sticky-col" style={{ left: '80px' }}><strong>{emp.PIN}</strong></td>
                                     <td>{emp.Name}</td>
                                     <td>{emp.Present_Post}</td>
                                     <td>{emp.Wing}</td>
@@ -308,7 +308,7 @@ const Employees = () => {
             {/* Employee Modal */}
             {showModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '800px' }}>
+                    <div className="modal-content modal-lg">
                         <div className="modal-header">
                             <h3>{editEmployee ? 'Edit Employee' : 'New Employee'}</h3>
                         </div>

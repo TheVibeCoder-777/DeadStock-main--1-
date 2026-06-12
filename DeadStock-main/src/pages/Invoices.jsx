@@ -359,7 +359,7 @@ const Invoices = () => {
             </div>
 
             <div className="toolbar">
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="toolbar-actions">
                     <button className="btn btn-primary" onClick={handleOpenAddModal}>
                         <FontAwesomeIcon icon={faPlus} /> New Invoice
                     </button>
@@ -372,7 +372,7 @@ const Invoices = () => {
                     <input
                         type="file"
                         ref={bulkUploadRef}
-                        style={{ display: 'none' }}
+                        className="d-none"
                         accept=".xlsx, .xls"
                         onChange={handleBulkUpload}
                     />
@@ -393,7 +393,7 @@ const Invoices = () => {
                 <table className="supplier-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '3%' }}></th>
+                            <th className="col-checkbox"></th>
                             <th>Serial No</th>
                             <th>Bill No</th>
                             <th>Firm Name</th>
@@ -408,7 +408,7 @@ const Invoices = () => {
                         {filteredInvoices.length > 0 ? filteredInvoices.map(inv => (
                             <React.Fragment key={inv.id}>
                                 <tr className={expandedRowIds.has(inv.id) ? 'expanded-row-parent' : ''}>
-                                    <td onClick={() => toggleRow(inv.id)} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                                    <td onClick={() => toggleRow(inv.id)} className="expand-toggle">
                                         <FontAwesomeIcon icon={expandedRowIds.has(inv.id) ? faChevronUp : faChevronDown} />
                                     </td>
                                     <td>{inv.Serial_Number}</td>
@@ -420,7 +420,7 @@ const Invoices = () => {
                                     <td>
                                         {inv.Bill_PDF ?
                                             <a href={`http://localhost:3001/uploads/${inv.Bill_PDF}`} target="_blank" rel="noreferrer">
-                                                <FontAwesomeIcon icon={faFilePdf} style={{ color: 'red' }} />
+                                                <FontAwesomeIcon icon={faFilePdf} className="text-icon-pdf" />
                                             </a>
                                             : '-'}
                                     </td>
@@ -435,37 +435,37 @@ const Invoices = () => {
                                 {/* Expanded Details (Read-Only) */}
                                 {expandedRowIds.has(inv.id) && (
                                     <tr className="expanded-row-details">
-                                        <td colSpan="9" style={{ backgroundColor: '#f9f9f9', padding: '15px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                        <td colSpan="9" className="expanded-detail-cell">
+                                            <div className="flex-row justify-between items-center mb-md">
                                                 <strong>Items for Invoice {inv.Bill_Number}</strong>
                                             </div>
 
                                             {inv.Items && inv.Items.length > 0 ? (
-                                                <table className="items-table" style={{ width: '100%', marginTop: '5px', borderCollapse: 'collapse' }}>
+                                                <table className="items-table-nested">
                                                     <thead>
-                                                        <tr style={{ backgroundColor: '#e0e0e0' }}>
-                                                            <th style={{ padding: '8px', border: '1px solid #ddd' }}>Product</th>
-                                                            <th style={{ padding: '8px', border: '1px solid #ddd' }}>Qty</th>
-                                                            <th style={{ padding: '8px', border: '1px solid #ddd' }}>Warranty</th>
-                                                            <th style={{ padding: '8px', border: '1px solid #ddd' }}>Warranty Upto</th>
-                                                            <th style={{ padding: '8px', border: '1px solid #ddd' }}>Details</th>
-                                                            <th style={{ padding: '8px', border: '1px solid #ddd' }}>OEM Software</th>
+                                                        <tr>
+                                                            <th>Product</th>
+                                                            <th>Qty</th>
+                                                            <th>Warranty</th>
+                                                            <th>Warranty Upto</th>
+                                                            <th>Details</th>
+                                                            <th>OEM Software</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {inv.Items.map((item, idx) => (
-                                                            <tr key={idx} style={{ backgroundColor: '#fff' }}>
-                                                                <td style={{ padding: '8px', border: '1px solid #ddd' }}>{item.Hardware_Item}</td>
-                                                                <td style={{ padding: '8px', border: '1px solid #ddd' }}>{item.Quantity}</td>
-                                                                <td style={{ padding: '8px', border: '1px solid #ddd' }}>{item.Warranty}</td>
-                                                                <td style={{ padding: '8px', border: '1px solid #ddd' }}>{formatDate(item.Warranty_Upto)}</td>
-                                                                <td style={{ padding: '8px', border: '1px solid #ddd' }}>{item.Item_Details}</td>
-                                                                <td style={{ padding: '8px', border: '1px solid #ddd' }}>{item.OEM_Software}</td>
+                                                            <tr key={idx}>
+                                                                <td>{item.Hardware_Item}</td>
+                                                                <td>{item.Quantity}</td>
+                                                                <td>{item.Warranty}</td>
+                                                                <td>{formatDate(item.Warranty_Upto)}</td>
+                                                                <td>{item.Item_Details}</td>
+                                                                <td>{item.OEM_Software}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
                                                 </table>
-                                            ) : <p style={{ fontStyle: 'italic', color: '#666' }}>No items saved for this invoice.</p>}
+                                            ) : <p className="no-items-text">No items saved for this invoice.</p>}
                                         </td>
                                     </tr>
                                 )}
@@ -480,7 +480,7 @@ const Invoices = () => {
             {/* ====== Modal - Add / Edit Invoice ====== */}
             {showModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '960px' }}>
+                    <div className="modal-content modal-xl">
                         <div className="modal-header">
                             <h3>{editingInvoiceId ? 'Edit Invoice' : 'New Invoice'}</h3>
                         </div>
@@ -528,11 +528,11 @@ const Invoices = () => {
                                 </div>
                             </div>
 
-                            <hr style={{ margin: '15px 0', border: '0', borderTop: '1px solid #ddd' }} />
+                            <hr className="section-separator" />
 
                             {/* Items Sub-Form */}
                             <h4>Invoice Items</h4>
-                            <div className="form-row" style={{ alignItems: 'end' }}>
+                            <div className="form-row items-end">
                                 <div className="form-group">
                                     <label>Item</label>
                                     <select className="form-select" value={newItem.Hardware_Item} onChange={(e) => setNewItem({ ...newItem, Hardware_Item: e.target.value })}>
@@ -562,11 +562,11 @@ const Invoices = () => {
                                 </div>
                             </div>
                             <div className="form-row">
-                                <div className="form-group" style={{ flex: 2 }}>
+                                <div className="form-group flex-2">
                                     <label>Details / Specs</label>
                                     <input type="text" className="form-input" placeholder="Short text & specs" value={newItem.Item_Details} onChange={(e) => setNewItem({ ...newItem, Item_Details: e.target.value })} />
                                 </div>
-                                <div className="form-group" style={{ flex: 1 }}>
+                                <div className="form-group flex-1">
                                     <label>OEM Software</label>
                                     <input type="text" className="form-input" placeholder="Win 11 / Office 365" value={newItem.OEM_Software} onChange={(e) => setNewItem({ ...newItem, OEM_Software: e.target.value })} />
                                 </div>
@@ -579,7 +579,7 @@ const Invoices = () => {
 
                             {/* Added Items List (Read-Only Rows) */}
                             {modalInvoice.Items.length > 0 && (
-                                <table className="supplier-table" style={{ marginTop: '10px' }}>
+                                <table className="supplier-table mt-md">
                                     <thead>
                                         <tr>
                                             <th>Item</th>
@@ -588,7 +588,7 @@ const Invoices = () => {
                                             <th>Warranty Upto</th>
                                             <th>Details</th>
                                             <th>OEM</th>
-                                            <th style={{ width: '90px', textAlign: 'center' }}>Action</th>
+                                            <th className="col-actions text-center">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -600,7 +600,7 @@ const Invoices = () => {
                                                 <td>{formatDate(item.Warranty_Upto)}</td>
                                                 <td>{item.Item_Details}</td>
                                                 <td>{item.OEM_Software}</td>
-                                                <td style={{ textAlign: 'center' }}>
+                                                <td className="text-center">
                                                     <div className="action-buttons">
                                                         <button className="btn-icon edit" title="Edit" onClick={() => startEditModalItem(idx)}><FontAwesomeIcon icon={faEdit} /></button>
                                                         <button className="btn-icon delete" title="Delete" onClick={() => removeItemFromModal(idx)}><FontAwesomeIcon icon={faTrash} /></button>
@@ -614,9 +614,9 @@ const Invoices = () => {
 
                             {/* ====== Sub-Popup: Edit Item ====== */}
                             {editingModalItemIdx !== null && (
-                                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '25px', width: '600px', maxWidth: '95vw', boxShadow: '0 8px 30px rgba(0,0,0,0.25)' }}>
-                                        <h4 style={{ marginBottom: '18px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Edit Item</h4>
+                                <div className="sub-popup-overlay">
+                                    <div className="sub-popup-dialog">
+                                        <h4>Edit Item</h4>
                                         <div className="form-row">
                                             <div className="form-group">
                                                 <label>Product</label>
@@ -648,16 +648,16 @@ const Invoices = () => {
                                             </div>
                                         </div>
                                         <div className="form-row">
-                                            <div className="form-group" style={{ flex: 2 }}>
+                                            <div className="form-group flex-2">
                                                 <label>Details / Specs</label>
                                                 <input type="text" className="form-input" value={editModalItemData.Item_Details} onChange={(e) => setEditModalItemData({ ...editModalItemData, Item_Details: e.target.value })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group flex-1">
                                                 <label>OEM Software</label>
                                                 <input type="text" className="form-input" value={editModalItemData.OEM_Software} onChange={(e) => setEditModalItemData({ ...editModalItemData, OEM_Software: e.target.value })} />
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
+                                        <div className="flex-row justify-end gap-md" style={{ marginTop: '18px' }}>
                                             <button className="btn btn-primary" onClick={saveEditModalItem}>Save Item</button>
                                             <button className="btn btn-outline" onClick={cancelEditModalItem}>Cancel</button>
                                         </div>

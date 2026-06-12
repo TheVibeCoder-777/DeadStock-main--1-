@@ -273,12 +273,12 @@ const Backup = () => {
             </div>
 
             {/* Backup Settings Card */}
-            <div className="card" style={{ padding: '25px', marginBottom: '20px' }}>
-                <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="card config-card mb-lg">
+                <h3 className="toolbar-actions mb-lg">
                     <FontAwesomeIcon icon={faFolderOpen} style={{ color: 'teal' }} />
                     Backup Location
                 </h3>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="toolbar-actions">
                     <input
                         type="text"
                         className="form-input"
@@ -295,9 +295,9 @@ const Backup = () => {
             </div>
 
             {/* Schedule + Manual Backup + Restore */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-                <div className="card" style={{ padding: '25px' }}>
-                    <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="grid-3-col" style={{ gap: '20px', marginBottom: '20px' }}>
+                <div className="card config-card">
+                    <h3 className="toolbar-actions mb-lg">
                         <FontAwesomeIcon icon={faClock} style={{ color: 'teal' }} />
                         Schedule
                     </h3>
@@ -335,12 +335,12 @@ const Backup = () => {
                 </div>
 
                 {/* Manual Backup Card */}
-                <div className="card" style={{ padding: '25px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+                <div className="card config-card flex-center">
                     <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <FontAwesomeIcon icon={faDownload} style={{ color: 'teal' }} />
                         Manual Backup
                     </h3>
-                    <p style={{ marginBottom: '20px', color: '#666', fontSize: '0.9em' }}>
+                    <p className="helper-text mb-lg">
                         Generate Excel + Database backup files
                     </p>
                     <button
@@ -355,18 +355,18 @@ const Backup = () => {
                             <><FontAwesomeIcon icon={faDownload} /> Backup Now</>
                         )}
                     </button>
-                    <p style={{ marginTop: '12px', fontSize: '0.8em', color: '#999' }}>
+                    <p className="text-muted text-xs mt-sm">
                         Creates: Excel (.xlsx) + Database (.deadstock)
                     </p>
                 </div>
 
                 {/* Restore Card */}
-                <div className="card" style={{ padding: '25px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+                <div className="card config-card flex-center">
                     <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <FontAwesomeIcon icon={faUpload} style={{ color: '#e65100' }} />
                         Restore Database
                     </h3>
-                    <p style={{ marginBottom: '20px', color: '#666', fontSize: '0.9em' }}>
+                    <p className="helper-text mb-lg">
                         Restore from a .deadstock backup file
                     </p>
                     <input
@@ -393,7 +393,7 @@ const Backup = () => {
                             <><FontAwesomeIcon icon={faDatabase} /> Select Backup File</>
                         )}
                     </button>
-                    <p style={{ marginTop: '12px', fontSize: '0.8em', color: '#999' }}>
+                    <p className="text-muted text-xs mt-sm">
                         ⚠ Current data will be backed up before restore
                     </p>
                 </div>
@@ -445,8 +445,8 @@ const Backup = () => {
 
             {/* Backup History */}
             {backupHistory.length > 0 && (
-                <div className="card" style={{ padding: '20px' }}>
-                    <h3 style={{ marginBottom: '15px' }}>Backup History</h3>
+                <div className="card config-card">
+                    <h3 className="section-heading">Backup History</h3>
                     <div className="table-responsive">
                         <table className="supplier-table">
                             <thead>

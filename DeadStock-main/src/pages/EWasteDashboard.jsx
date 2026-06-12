@@ -141,7 +141,7 @@ const EWasteDashboard = () => {
             {loading ? (
                 <p>Loading...</p>
             ) : years.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                <div className="empty-state">
                     <FontAwesomeIcon icon={faTrash} size="3x" style={{ marginBottom: '20px' }} />
                     <p>No E-Waste years created yet. Click "Create New E-Waste Year" to get started.</p>
                 </div>
@@ -248,7 +248,7 @@ const EWasteDashboard = () => {
                                     value={newYear}
                                     onChange={e => setNewYear(e.target.value)}
                                 />
-                                <p style={{ fontSize: '0.85em', color: '#666', marginTop: '5px' }}>
+                                <p className="text-muted text-xs mt-sm">
                                     Format: YYYY-YY (e.g., 2024-25 for financial year April 2024 to March 2025)
                                 </p>
                             </div>
@@ -273,7 +273,7 @@ const EWasteDashboard = () => {
                         </div>
                         <div className="modal-body">
                             {Object.keys(breakdown).length === 0 ? (
-                                <p style={{ textAlign: 'center', color: '#999' }}>No items in this E-Waste year yet.</p>
+                                <p className="empty-state">No items in this E-Waste year yet.</p>
                             ) : (
                                 <table className="supplier-table">
                                     <thead>

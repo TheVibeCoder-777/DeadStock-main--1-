@@ -152,7 +152,7 @@ const Reports = () => {
                 <div className="tab-content">
                     <div className="toolbar">
                         <h2>Hardware Report</h2>
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        <div className="toolbar-actions">
                             <button className="btn btn-outline" onClick={fetchReports}>
                                 <FontAwesomeIcon icon={faSync} /> Refresh
                             </button>
@@ -179,13 +179,13 @@ const Reports = () => {
                                 <tbody>
                                     {hardwareReport.length === 0 ? (
                                         <tr>
-                                            <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
+                                            <td colSpan="5" className="empty-state">
                                                 No hardware data available
                                             </td>
                                         </tr>
                                     ) : (
                                         processedHardwareReport.map((item, index) => (
-                                            <tr key={index} style={item.isGrandTotal ? { backgroundColor: '#e0e0e0', fontWeight: 'bold' } : (item.isSubtotal ? { backgroundColor: '#f5f5f5', fontWeight: 'bold' } : {})}>
+                                            <tr key={index} className={item.isGrandTotal ? 'row-grand-total' : (item.isSubtotal ? 'row-subtotal' : '')}>
                                                 <td>{item.isSubtotal || item.isGrandTotal ? item.Item_Name : <strong>{item.Item_Name}</strong>}</td>
                                                 <td>{item.isSubtotal || item.isGrandTotal ? '' : item.Capacity}</td>
                                                 <td>{item.Total_Quantity}</td>
@@ -223,7 +223,7 @@ const Reports = () => {
                 <div className="tab-content">
                     <div className="toolbar">
                         <h2>Software Report</h2>
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        <div className="toolbar-actions">
                             <button className="btn btn-outline" onClick={fetchReports}>
                                 <FontAwesomeIcon icon={faSync} /> Refresh
                             </button>
@@ -248,7 +248,7 @@ const Reports = () => {
                                 <tbody>
                                     {softwareReport.length === 0 ? (
                                         <tr>
-                                            <td colSpan="3" style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
+                                            <td colSpan="3" className="empty-state">
                                                 No software data available
                                             </td>
                                         </tr>

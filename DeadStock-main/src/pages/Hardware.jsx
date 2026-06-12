@@ -627,7 +627,7 @@ const Hardware = () => {
             </div>
 
             <div className="toolbar">
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="toolbar-actions">
                     <button className="btn btn-primary" onClick={() => setShowModal(true)}>
                         <FontAwesomeIcon icon={faPlus} /> Add Item
                     </button>
@@ -733,7 +733,7 @@ const Hardware = () => {
             {/* Edit Hardware Modal */}
             {editRowId && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '700px', maxHeight: '85vh', overflowY: 'auto' }}>
+                    <div className="modal-content modal-lg">
                         <div className="modal-header">
                             <h3>Edit {editFormData.Item_Name} — {editFormData.EDP_Serial}</h3>
                         </div>
@@ -900,7 +900,7 @@ const Hardware = () => {
                                             <option key={inv.id} value={inv.Bill_Number}>{inv.Bill_Number} - {inv.Firm_Name}</option>
                                         ))}
                                     </datalist>
-                                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <div className="modal-footer-inline">
                                         <button className="btn btn-primary" onClick={handleStep1Next}>Next</button>
                                         <button className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
                                     </div>
@@ -923,7 +923,7 @@ const Hardware = () => {
                                             </div>
                                         ))}
                                     </div>
-                                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <div className="modal-footer-inline">
                                         <button className="btn btn-outline" onClick={() => setWizardStep(1)}>Back</button>
                                         <button className="btn btn-primary" onClick={handleStep2Next}>Next</button>
                                         <button className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
@@ -934,7 +934,7 @@ const Hardware = () => {
                             {wizardStep === 3 && selectedInvoiceItem && (
                                 <div>
                                     <p>Adding <strong>{selectedInvoiceItem.Quantity}</strong> units of <strong>{selectedInvoiceItem.Hardware_Item}</strong></p>
-                                    <p style={{ fontSize: '0.9em', color: '#666' }}>Enter common details for all units. You can edit unique details (like Serial No) later in the list.</p>
+                                    <p className="helper-text">Enter common details for all units. You can edit unique details (like Serial No) later in the list.</p>
 
                                     <div className="form-row">
                                         <div className="form-group">
@@ -980,7 +980,7 @@ const Hardware = () => {
                                         </div>
                                     </div>
 
-                                    <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <div className="modal-footer-inline">
                                         <button className="btn btn-outline" onClick={() => setWizardStep(2)}>Back</button>
                                         <button className="btn btn-primary" onClick={handleSaveNewItems}>Save All</button>
                                         <button className="btn btn-secondary" onClick={handleCloseModal}>Cancel</button>
@@ -1013,7 +1013,7 @@ const Hardware = () => {
             {/* EDP Serial Confirmation Popup */}
             {showSerialConfirm && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '500px' }}>
+                    <div className="modal-content modal-md">
                         <div className="modal-header"><h3 style={{ color: '#008080' }}>📋 Verify EDP Serial Number</h3></div>
                         <div className="modal-body">
                             <p style={{ marginBottom: '10px' }}>The system has proposed the following starting EDP Serial Number for the new item(s):</p>
@@ -1029,7 +1029,7 @@ const Hardware = () => {
                                 onChange={e => setSerialOverride(e.target.value.toUpperCase())}
                                 style={{ textAlign: 'center', fontSize: '1.2em', letterSpacing: '2px', fontWeight: 'bold' }}
                             />
-                            <p style={{ marginTop: '10px', fontSize: '0.85em', color: '#999' }}>
+                            <p className="text-muted text-xs mt-sm">
                                 ⚠ Please double-check the last used serial in the list to avoid duplicates or skipped numbers.
                             </p>
                         </div>
@@ -1050,7 +1050,7 @@ const Hardware = () => {
             {/* Bulk Delete Confirmation Modal */}
             {showDeleteConfirm && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '450px' }}>
+                    <div className="modal-content modal-sm">
                         <div className="modal-header"><h3 style={{ color: '#ff4d4d' }}>⚠ Confirm Bulk Delete</h3></div>
                         <div className="modal-body">
                             <p style={{ marginBottom: '10px' }}>You are about to permanently delete <strong>{selectedIds.length}</strong> hardware item(s).</p>
@@ -1083,7 +1083,7 @@ const Hardware = () => {
             {/* Bulk AMC Update Modal */}
             {showBulkAMCModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '400px' }}>
+                    <div className="modal-content modal-sm">
                         <div className="modal-header"><h3>Bulk Update AMC</h3></div>
                         <div className="modal-body">
                             <div className="form-group">

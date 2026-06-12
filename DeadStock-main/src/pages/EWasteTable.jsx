@@ -340,7 +340,7 @@ const EWasteTable = () => {
 
             {!isCompleted && (
                 <div className="toolbar">
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className="toolbar-actions">
                         <button className="btn btn-primary" onClick={handleOpenSearch}>
                             <FontAwesomeIcon icon={faPlus} /> Add Hardware
                         </button>
@@ -373,7 +373,7 @@ const EWasteTable = () => {
 
             <div className="table-responsive">
                 {loading ? <p>Loading...</p> : items.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                    <div className="empty-state">
                         <p>No items in this E-Waste year yet. Click "Add Hardware" to get started.</p>
                     </div>
                 ) : (
@@ -441,13 +441,13 @@ const EWasteTable = () => {
             {/* Search Hardware Modal */}
             {showSearchModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '900px' }}>
+                    <div className="modal-content modal-xl">
                         <div className="modal-header">
                             <h3>Add Hardware to E-Waste</h3>
                             <button className="close-btn" onClick={() => setShowSearchModal(false)}><FontAwesomeIcon icon={faTimes} /></button>
                         </div>
                         <div className="modal-body">
-                            <div className="search-bar" style={{ marginBottom: '20px' }}>
+                            <div className="search-bar mb-lg">
                                 <input
                                     type="text"
                                     className="form-input"
@@ -502,7 +502,7 @@ const EWasteTable = () => {
             {/* Suggestions Modal */}
             {showSuggestions && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '900px' }}>
+                    <div className="modal-content modal-xl">
                         <div className="modal-header">
                             <h3><FontAwesomeIcon icon={faLightbulb} /> Hardware Suggestions (6+ Years Old)</h3>
                             <button className="close-btn" onClick={() => setShowSuggestions(false)}><FontAwesomeIcon icon={faTimes} /></button>
@@ -576,7 +576,7 @@ const EWasteTable = () => {
                                         required
                                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                     />
-                                    <p style={{ fontSize: '0.85em', color: '#666', marginTop: '5px' }}>
+                                    <p className="text-muted text-xs mt-sm">
                                         Upload disposal certificate, approval document, or any completion proof.
                                     </p>
                                 </div>

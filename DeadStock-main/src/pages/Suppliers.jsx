@@ -366,7 +366,7 @@ const Suppliers = () => {
 
             {/* Toolbar */}
             <div className="toolbar">
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="toolbar-actions">
                     <button className="btn btn-primary" onClick={handleOpenAddModal}>
                         <FontAwesomeIcon icon={faPlus} /> New Supplier
                     </button>
@@ -379,7 +379,7 @@ const Suppliers = () => {
                         onChange={handleUpload}
                     />
                     <button className="btn btn-outline" onClick={handleNativeUpload}>
-                        <FontAwesomeIcon icon={faFileExcel} style={{ color: 'green' }} /> Bulk Upload
+                        <FontAwesomeIcon icon={faFileExcel} className="text-icon-excel" /> Bulk Upload
                     </button>
                     <button className="btn btn-outline" onClick={handleFileDownload}>
                         <FontAwesomeIcon icon={faDownload} /> Download Excel
@@ -501,18 +501,18 @@ const Suppliers = () => {
                 <table className="supplier-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '7%' }}>Actions</th>
-                            <th style={{ width: '5%' }}>ID</th>
-                            <th style={{ width: '7%' }}>Category</th>
-                            <th style={{ width: '20%' }}>Name</th>
-                            <th style={{ width: '8%' }}>Address 1</th>
-                            <th style={{ width: '10%' }}>Address 2</th>
-                            <th style={{ width: '7%' }}>City</th>
-                            <th style={{ width: '7%' }}>State</th>
-                            <th style={{ width: '7%' }}>PIN</th>
-                            <th style={{ width: '8%' }}>POC</th>
-                            <th style={{ width: '8%' }}>Phone</th>
-                            <th style={{ width: '8%' }}>Email</th>
+                            <th className="col-actions">Actions</th>
+                            <th className="col-id">ID</th>
+                            <th className="col-category">Category</th>
+                            <th className="col-name">Name</th>
+                            <th className="col-address">Address 1</th>
+                            <th className="col-address">Address 2</th>
+                            <th className="col-city">City</th>
+                            <th className="col-state">State</th>
+                            <th className="col-pin">PIN</th>
+                            <th className="col-poc">POC</th>
+                            <th className="col-phone">Phone</th>
+                            <th className="col-email">Email</th>
                         </tr>
                     </thead>
                     <tbody>

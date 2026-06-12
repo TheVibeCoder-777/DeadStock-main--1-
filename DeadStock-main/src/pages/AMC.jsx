@@ -302,8 +302,8 @@ const AMC = () => {
             </div>
 
             <div className="tab-content">
-                <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="toolbar">
+                    <div className="toolbar-actions">
                         <button className="btn btn-outline" onClick={handleDownloadExcel}>
                             <FontAwesomeIcon icon={faDownload} /> Download Excel
                         </button>
@@ -314,7 +314,7 @@ const AMC = () => {
                         )}
                     </div>
 
-                    <div className="search-bar" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div className="toolbar-actions">
                         <select
                             className="form-select"
                             value={filterItemName}
@@ -339,11 +339,11 @@ const AMC = () => {
                     </div>
                 </div>
 
-            <div className="table-responsive" style={{ overflowX: 'auto', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+            <div className="table-responsive table-card">
                 {loading ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>Loading hardware...</div>
+                    <div className="empty-state">Loading hardware...</div>
                 ) : filteredList.length === 0 ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>No hardware items found.</div>
+                    <div className="empty-state">No hardware items found.</div>
                 ) : (
                     <table className="supplier-table" style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%' }}>
                         <thead>
@@ -420,12 +420,12 @@ const AMC = () => {
             {/* Bulk AMC Modal */}
             {showBulkAMCModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '400px' }}>
+                    <div className="modal-content modal-sm">
                         <div className="modal-header">
                             <h3>Bulk Update AMC</h3>
                         </div>
                         <div className="modal-body">
-                            <p style={{ marginBottom: '15px', color: '#666' }}>Updating <strong>{selectedIds.length}</strong> selected items.</p>
+                            <p className="helper-text mb-lg">Updating <strong>{selectedIds.length}</strong> selected items.</p>
                             <div className="form-group">
                                 <label>AMC Status</label>
                                 <select
@@ -460,7 +460,7 @@ const AMC = () => {
             {/* Single Edit Modal */}
             {editRowId && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ width: '400px' }}>
+                    <div className="modal-content modal-sm">
                         <div className="modal-header">
                             <h3>Edit {editFormData.Item_Name} — {editFormData.EDP_Serial}</h3>
                         </div>

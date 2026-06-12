@@ -349,7 +349,7 @@ const Software = () => {
             </div>
 
             <div className="toolbar">
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="toolbar-actions">
                     <button className="btn btn-primary" onClick={() => handleOpenModal()}>
                         <FontAwesomeIcon icon={faPlus} /> New Software
                     </button>
@@ -360,14 +360,14 @@ const Software = () => {
                         <FontAwesomeIcon icon={faDownload} /> Download Excel
                     </button>
                     {selectedIds.length > 0 && (
-                        <button className="btn btn-danger" onClick={handleBulkDelete} style={{ backgroundColor: '#dc3545', color: 'white', border: 'none' }}>
+                        <button className="btn btn-danger" onClick={handleBulkDelete}>
                             <FontAwesomeIcon icon={faTrash} /> Delete Selected ({selectedIds.length})
                         </button>
                     )}
-                    <input type="file" ref={uploadFileRef} style={{ display: 'none' }} accept=".xlsx, .xls" onChange={handleBulkUpload} />
+                    <input type="file" ref={uploadFileRef} className="d-none" accept=".xlsx, .xls" onChange={handleBulkUpload} />
                 </div>
 
-                <div className="search-bar" style={{ width: '100%', maxWidth: '600px' }}>
+                <div className="search-bar">
                     <input
                         type="text"
                         className="form-input"
@@ -384,14 +384,14 @@ const Software = () => {
                     <table className="supplier-table">
                         <thead>
                             <tr>
-                                <th style={{ width: '40px', textAlign: 'center' }}>
+                                <th className="col-checkbox">
                                     <input
                                         type="checkbox"
                                         onChange={toggleSelectAll}
                                         checked={selectedIds.length === filteredSoftware.length && filteredSoftware.length > 0}
                                     />
                                 </th>
-                                <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
+                                <th className="col-actions text-center">Actions</th>
                                 <th>Software Name</th>
                                 <th>Quantity</th>
                                 <th>Source</th>
@@ -401,8 +401,8 @@ const Software = () => {
                                 <th>Amount (INR)</th>
                                 <th>Valid Upto</th>
                                 <th>Issued To</th>
-                                <th style={{ minWidth: '160px' }}>License Code</th>
-                                <th style={{ minWidth: '180px' }}>Additional Info</th>
+                                <th className="col-wide">License Code</th>
+                                <th className="col-xwide">Additional Info</th>
                                 <th>Multiple Issued</th>
                                 <th>PDF</th>
                             </tr>
@@ -410,20 +410,20 @@ const Software = () => {
                         <tbody>
                             {filteredSoftware.map(item => (
                                 <tr key={item.id}>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td className="text-center">
                                         <input
                                             type="checkbox"
                                             onChange={(e) => toggleSelectOne(e, item.id)}
                                             checked={selectedIds.includes(item.id)}
                                         />
                                     </td>
-                                    <td style={{ textAlign: 'center' }}>
-                                        <div className="action-buttons" style={{ justifyContent: 'center' }}>
+                                    <td className="text-center">
+                                        <div className="action-buttons">
                                             <button className="btn-icon edit" onClick={() => handleOpenModal(item)} title="Edit">
-                                                <FontAwesomeIcon icon={faEdit} style={{ color: '#008b8b' }} />
+                                                <FontAwesomeIcon icon={faEdit} />
                                             </button>
                                             <button className="btn-icon delete" onClick={() => handleDelete(item.id)} title="Delete">
-                                                <FontAwesomeIcon icon={faTrash} style={{ color: '#dc3545' }} />
+                                                <FontAwesomeIcon icon={faTrash} />
                                             </button>
                                         </div>
                                     </td>
@@ -436,13 +436,13 @@ const Software = () => {
                                     <td>₹{item.Amount}</td>
                                     <td>{formatDate(item.Valid_Upto)}</td>
                                     <td>{item.Issued_To}</td>
-                                    <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: '200px' }}>{item.License_Code}</td>
-                                    <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: '220px' }}>{item.Additional_Info}</td>
+                                    <td className="text-wrap-break col-wide">{item.License_Code}</td>
+                                    <td className="text-wrap-break col-xwide">{item.Additional_Info}</td>
                                     <td>{Array.isArray(item.Multiple_Issued) ? item.Multiple_Issued.join(', ') : item.Multiple_Issued}</td>
                                     <td>
                                         {item.Document ?
                                             <a href={`http://localhost:3001/uploads/${item.Document}`} target="_blank" rel="noreferrer" title="View PDF">
-                                                <FontAwesomeIcon icon={faFilePdf} style={{ color: 'red', fontSize: '1.2em' }} />
+                                                <FontAwesomeIcon icon={faFilePdf} className="text-icon-pdf" style={{ fontSize: '1.2em' }} />
                                             </a>
                                             : '-'}
                                     </td>
@@ -456,13 +456,13 @@ const Software = () => {
             {/* Add/Edit Modal */}
             {showModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '800px' }}>
+                    <div className="modal-content modal-lg">
                         <div className="modal-header">
                             <h3>{editingItem ? 'Edit Software' : 'New Software'}</h3>
                             <button className="close-btn" onClick={() => setShowModal(false)}><FontAwesomeIcon icon={faTimes} /></button>
                         </div>
                         <div className="modal-body">
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                            <div className="grid-2-col">
                                 <div className="form-group">
                                     <label>Software Name *</label>
                                     <input
@@ -581,10 +581,9 @@ const Software = () => {
                                 <div className="form-group">
                                     <label>Issued To</label>
                                     <select
-                                        className="form-input"
+                                        className="form-input mb-sm"
                                         value={formData.Issued_To?.startsWith('Employee:') || formData.Issued_To?.startsWith('Section:') ? formData.Issued_To.split(':')[0] : ''}
                                         onChange={e => setFormData({ ...formData, Issued_To: e.target.value ? e.target.value + ':' : '' })}
-                                        style={{ marginBottom: '6px' }}
                                     >
                                         <option value="">Select Type</option>
                                         <option value="Employee">Employee</option>
@@ -624,7 +623,7 @@ const Software = () => {
                                 </div>
                             </div>
 
-                            <div className="form-group" style={{ marginTop: '15px' }}>
+                            <div className="form-group mt-lg">
                                 <label>Additional Info</label>
                                 <textarea
                                     className="form-input"
@@ -638,13 +637,12 @@ const Software = () => {
                                 <label>Multiple Issued (Select multiple employees)</label>
                                 <input
                                     type="text"
-                                    className="form-input"
+                                    className="form-input mb-md"
                                     placeholder="Search employees..."
                                     value={employeeSearch}
                                     onChange={e => setEmployeeSearch(e.target.value)}
-                                    style={{ marginBottom: '10px' }}
                                 />
-                                <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px', borderRadius: '4px' }}>
+                                <div className="employee-list-scroll">
                                     {employees
                                         .filter(emp =>
                                             employeeSearch === '' ||
@@ -652,13 +650,13 @@ const Software = () => {
                                             String(emp.PIN || '').toLowerCase().includes(employeeSearch.toLowerCase())
                                         )
                                         .map(emp => (
-                                            <div key={emp.PIN} style={{ marginBottom: '5px' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                            <div key={emp.PIN} className="employee-list-item">
+                                                <label className="employee-list-label">
                                                     <input
                                                         type="checkbox"
                                                         checked={(formData.Multiple_Issued || []).includes(emp.Name)}
                                                         onChange={() => toggleMultipleIssued(emp.Name)}
-                                                        style={{ marginRight: '8px' }}
+                                                        className="checkbox-mr"
                                                     />
                                                     {emp.Name} ({emp.PIN})
                                                 </label>
@@ -666,7 +664,7 @@ const Software = () => {
                                         ))}
                                 </div>
                                 {formData.Multiple_Issued?.length > 0 && (
-                                    <p style={{ fontSize: '0.85em', color: '#666', marginTop: '5px' }}>
+                                    <p className="helper-text">
                                         Selected: {formData.Multiple_Issued.join(', ')}
                                     </p>
                                 )}
