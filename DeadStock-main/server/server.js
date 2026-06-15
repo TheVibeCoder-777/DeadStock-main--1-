@@ -2241,10 +2241,34 @@ app.get('/api/ewaste/:year/download', async (req, res) => {
         await db.read();
         const items = (db.data.ewasteItems || []).filter(item => item.year === year);
 
+        const formatDateHelper = (val) => {
+            if (!val && val !== 0) return '-';
+            const str = String(val).trim();
+            if (!str) return '-';
+            if (typeof val === 'number' || /^\d+$/.test(str)) {
+                const num = Number(str);
+                if (num > 10000 && num < 100000) {
+                    const date = new Date((num - 25569) * 86400 * 1000);
+                    const dd = String(date.getUTCDate()).padStart(2, '0');
+                    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+                    const yyyy = date.getUTCFullYear();
+                    return `${dd}-${mm}-${yyyy}`;
+                }
+            }
+            const parsed = new Date(str);
+            if (!isNaN(parsed.getTime())) {
+                const dd = String(parsed.getDate()).padStart(2, '0');
+                const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+                const yyyy = parsed.getFullYear();
+                return `${dd}-${mm}-${yyyy}`;
+            }
+            return str;
+        };
+
         const exportData = items.map(item => ({
             'Item Name': item.Item_Name,
             'EDP Serial': item.EDP_Serial,
-            'Date of Purchase': item.date_of_purchase,
+            'Date of Purchase': formatDateHelper(item.date_of_purchase),
             'Bill Number': item.Bill_Number,
             'Cost': item.Cost,
             'Make': item.Make,
@@ -2286,6 +2310,149 @@ app.get('/api/ewaste/:year/download', async (req, res) => {
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// Download E-Waste Report Excel (Depreciation)
+app.get('/api/ewaste/:year/report/download', async (req, res) => {
+    try {
+        const { year } = req.params;
+        const refDateParam = req.query.refDate;
+        const refDate = refDateParam ? new Date(refDateParam) : new Date();
+        
+        await db.read();
+        const items = (db.data.ewasteItems || []).filter(item => item.year === year);
+
+        // Grouping variables
+        const grouped = {};
+        let grandTotalCount = 0;
+        let grandTotalCost = 0;
+        let grandTotalBookValue = 0;
+
+        items.forEach(item => {
+            const cost = parseFloat(item.Cost) || 0;
+            let dateObj = null;
+
+            // Parse Date of Purchase safely
+            const dateVal = item.date_of_purchase;
+            if (dateVal) {
+                const str = String(dateVal).trim();
+                if (typeof dateVal === 'number' || /^\d+$/.test(str)) {
+                    const num = Number(str);
+                    if (num > 10000 && num < 100000) {
+                        dateObj = new Date((num - 25569) * 86400 * 1000);
+                    }
+                } else {
+                    const parsed = new Date(str);
+                    if (!isNaN(parsed.getTime())) dateObj = parsed;
+                }
+            }
+
+            let yop = '-';
+            let remainingPct = 0;
+            let bookValue = 0;
+
+            if (dateObj) {
+                yop = dateObj.getFullYear();
+                const diffMs = refDate.getTime() - dateObj.getTime();
+                const diffYears = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+                const completedYears = Math.floor(Math.max(0, diffYears));
+                remainingPct = 100 * Math.pow(0.6, completedYears);
+                bookValue = cost * (remainingPct / 100);
+            }
+
+            const itemName = item.Item_Name || 'Unknown Item';
+            const remainingPctStr = remainingPct.toFixed(4) + '%';
+            const subGroupKey = `${yop}_${remainingPctStr}`;
+
+            if (!grouped[itemName]) grouped[itemName] = {};
+            if (!grouped[itemName][subGroupKey]) {
+                grouped[itemName][subGroupKey] = {
+                    count: 0,
+                    yop: yop,
+                    cost: 0,
+                    remainingPctStr: remainingPctStr,
+                    bookValue: 0
+                };
+            }
+
+            grouped[itemName][subGroupKey].count += 1;
+            grouped[itemName][subGroupKey].cost += cost;
+            grouped[itemName][subGroupKey].bookValue += bookValue;
+
+            grandTotalCount += 1;
+            grandTotalCost += cost;
+            grandTotalBookValue += bookValue;
+        });
+
+        const exportData = [];
+
+        Object.keys(grouped).sort().forEach(itemName => {
+            let itemTotalCount = 0;
+            let itemTotalCost = 0;
+            let itemTotalBookValue = 0;
+            let index = 1; // Reset index per item name
+
+            Object.keys(grouped[itemName]).forEach((subGroupKey) => {
+                const sg = grouped[itemName][subGroupKey];
+                exportData.push({
+                    'ITEM NO.': index++,
+                    'ITEM NAME': itemName,
+                    'QUANTITY': sg.count,
+                    'YEAR OF PURCHASE': sg.yop,
+                    'COST (₹)': sg.cost.toFixed(2),
+                    'REMAINING VALUE (%)': sg.remainingPctStr,
+                    'BOOK VALUE (₹)': sg.bookValue.toFixed(4)
+                });
+                itemTotalCount += sg.count;
+                itemTotalCost += sg.cost;
+                itemTotalBookValue += sg.bookValue;
+            });
+
+            // Subtotal Row
+            exportData.push({
+                'ITEM NO.': '',
+                'ITEM NAME': `${itemName} Total`,
+                'QUANTITY': itemTotalCount,
+                'YEAR OF PURCHASE': '',
+                'COST (₹)': itemTotalCost.toFixed(2),
+                'REMAINING VALUE (%)': '',
+                'BOOK VALUE (₹)': itemTotalBookValue.toFixed(4)
+            });
+        });
+
+        // Grand Total Row
+        exportData.push({
+            'ITEM NO.': '',
+            'ITEM NAME': 'Grand Total',
+            'QUANTITY': grandTotalCount,
+            'YEAR OF PURCHASE': '',
+            'COST (₹)': grandTotalCost.toFixed(2),
+            'REMAINING VALUE (%)': '',
+            'BOOK VALUE (₹)': grandTotalBookValue.toFixed(4)
+        });
+
+        const headers = [
+            'ITEM NO.', 'ITEM NAME', 'QUANTITY', 'YEAR OF PURCHASE', 'COST (₹)', 'REMAINING VALUE (%)', 'BOOK VALUE (₹)'
+        ];
+
+        let worksheet;
+        if (exportData.length > 0) {
+            worksheet = xlsx.utils.json_to_sheet(exportData, { header: headers });
+        } else {
+            worksheet = xlsx.utils.aoa_to_sheet([headers]);
+        }
+        
+        const workbook = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(workbook, worksheet, `E-Waste Report ${year}`);
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', `attachment; filename="ewaste_report_${year}.xlsx"`);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Report Download failed' });
     }
 });
 

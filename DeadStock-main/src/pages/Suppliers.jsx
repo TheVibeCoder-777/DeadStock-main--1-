@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTimes, faEdit, faTrash, faFileExcel, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { getJson, postJson, putJson, deleteJson, downloadBlob } from '../utils/api';
 
 const Suppliers = () => {
     // --- State ---
@@ -39,7 +40,7 @@ const Suppliers = () => {
     const fetchSuppliers = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:3001/api/suppliers');
+            const response = await getJson('/suppliers');
             const data = await response.json();
             setSuppliers(data);
         } catch (error) {
@@ -86,16 +87,10 @@ const Suppliers = () => {
 
         setProcessing(true);
         try {
-            const url = editingSupplierId
-                ? `http://localhost:3001/api/suppliers/${editingSupplierId}`
-                : 'http://localhost:3001/api/suppliers';
-            const method = editingSupplierId ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(modalSupplier)
-            });
+            const endpoint = editingSupplierId ? `/suppliers/${editingSupplierId}` : '/suppliers';
+            const response = editingSupplierId 
+                ? await putJson(endpoint, modalSupplier)
+                : await postJson(endpoint, modalSupplier);
 
             if (response.ok) {
                 showAlert('success', editingSupplierId ? 'Supplier Updated' : 'Supplier Added');
@@ -115,9 +110,7 @@ const Suppliers = () => {
         if (window.confirm('Are you sure you want to delete this supplier?')) {
             setProcessing(true);
             try {
-                const response = await fetch(`http://localhost:3001/api/suppliers/${id || s_id}`, {
-                    method: 'DELETE'
-                });
+                const response = await deleteJson(`/suppliers/${id || s_id}`);
                 if (response.ok) {
                     showAlert('success', 'Supplier Deleted');
                     fetchSuppliers();
@@ -148,11 +141,7 @@ const Suppliers = () => {
             const reader = new FileReader();
             reader.onload = async (event) => {
                 try {
-                    const response = await fetch('http://localhost:3001/api/suppliers/upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileData: event.target.result })
-                    });
+                    const response = await postJson('/suppliers/upload', { fileData: event.target.result });
                     const data = await response.json();
                     if (response.ok) {
                         showAlert('success', data.message || 'Suppliers uploaded');
@@ -219,11 +208,7 @@ const Suppliers = () => {
 
             const savedFileName = saveResult.path.split('\\').pop() || saveResult.path.split('/').pop();
 
-            const res = await fetch('http://localhost:3001/api/suppliers/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ processOnly: true, fileName: savedFileName })
-            });
+            const res = await postJson('/suppliers/upload', { processOnly: true, fileName: savedFileName });
 
             const data = await res.json();
             if (res.ok) {
@@ -245,8 +230,7 @@ const Suppliers = () => {
         setProcessing(true);
         try {
             if (isElectron()) {
-                // Fetch buffer FIRST before showing dialog
-                const res = await fetch('http://localhost:3001/api/suppliers/download-buffer');
+                const res = await getJson('/suppliers/download-buffer');
                 const data = await res.json();
 
                 if (!data.buffer) throw new Error('No data received');
@@ -266,10 +250,7 @@ const Suppliers = () => {
                     showAlert('success', 'File saved!');
                 }
             } else {
-                // Browser fallback - blob download
-                const response = await fetch('http://localhost:3001/api/suppliers/download');
-                if (!response.ok) throw new Error('Download failed');
-                const blob = await response.blob();
+                const blob = await downloadBlob('/suppliers/download');
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;

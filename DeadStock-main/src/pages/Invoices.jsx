@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { formatDate } from '../utils/formatDate';
+import { getJson, postJson, putJson, deleteJson, downloadBlob, getErrorMessage } from '../utils/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTimes, faEdit, faTrash, faFileExcel, faDownload, faFilePdf, faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 
@@ -48,7 +49,7 @@ const Invoices = () => {
     // --- API Calls ---
     const fetchInvoices = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/invoices');
+            const res = await getJson('/invoices');
             const data = await res.json();
             setInvoices(data);
         } catch (error) {
@@ -58,7 +59,7 @@ const Invoices = () => {
 
     const fetchSuppliers = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/suppliers');
+            const res = await getJson('/suppliers');
             const data = await res.json();
             setSuppliers(data);
         } catch (error) {
@@ -68,7 +69,7 @@ const Invoices = () => {
 
     const fetchHardwareCategories = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/hardware/config');
+            const res = await getJson('/hardware/config');
             const data = await res.json();
             const categories = data.map(item => item.category);
             setHardwareOptions(categories);
@@ -139,24 +140,18 @@ const Invoices = () => {
                 fileName: fileName
             };
 
-            const url = editingInvoiceId
-                ? `http://localhost:3001/api/invoices/${editingInvoiceId}`
-                : 'http://localhost:3001/api/invoices';
-            const method = editingInvoiceId ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const endpoint = editingInvoiceId ? `/invoices/${editingInvoiceId}` : '/invoices';
+            const res = editingInvoiceId 
+                ? await putJson(endpoint, payload) 
+                : await postJson(endpoint, payload);
 
             if (res.ok) {
                 showAlert('success', editingInvoiceId ? 'Invoice Updated' : 'Invoice Added');
                 handleCloseModal();
                 fetchInvoices();
             } else {
-                const err = await res.json();
-                showAlert('error', err.error || 'Failed to save invoice');
+                const errorMsg = await getErrorMessage(res);
+                showAlert('error', errorMsg);
             }
         } catch (error) {
             showAlert('error', 'Error saving invoice');
@@ -170,7 +165,7 @@ const Invoices = () => {
         if (!window.confirm('Are you sure you want to delete this invoice?')) return;
         setProcessing(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/invoices/${id}`, { method: 'DELETE' });
+            const res = await deleteJson(`/invoices/${id}`);
             if (res.ok) {
                 showAlert('success', 'Invoice Deleted');
                 fetchInvoices();
@@ -188,20 +183,15 @@ const Invoices = () => {
     const handleExcelDownload = async () => {
         setProcessing(true);
         try {
-            const response = await fetch('http://localhost:3001/api/invoices/download');
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
+            const blob = await downloadBlob('/invoices/download');
+            const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'invoices.xlsx';
                 document.body.appendChild(a);
                 a.click();
-                a.remove();
-                showAlert('success', 'File downloaded');
-            } else {
-                showAlert('error', 'Download failed');
-            }
+            a.remove();
+            showAlert('success', 'File downloaded');
         } catch (error) {
             showAlert('error', 'Error downloading file');
         } finally {
@@ -227,13 +217,9 @@ const Invoices = () => {
                 }
 
                 const savedFileName = saveResult.path.split('\\').pop() || saveResult.path.split('/').pop();
-                const res = await fetch('http://localhost:3001/api/invoices/upload', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fileName: savedFileName,
-                        processOnly: true
-                    })
+                const res = await postJson('/invoices/upload', {
+                    fileName: savedFileName,
+                    processOnly: true
                 });
 
                 const result = await res.json();
@@ -247,11 +233,7 @@ const Invoices = () => {
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     try {
-                        const res = await fetch('http://localhost:3001/api/invoices/upload', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ fileData: event.target.result })
-                        });
+                        const res = await postJson('/invoices/upload', { fileData: event.target.result });
                         const result = await res.json();
                         if (res.ok) {
                             showAlert('success', result.message || 'Upload complete');

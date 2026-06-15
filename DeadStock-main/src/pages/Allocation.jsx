@@ -8,6 +8,7 @@ import {
     faFileExcel,
     faDownload
 } from '@fortawesome/free-solid-svg-icons';
+import { getJson, postJson, downloadBlob } from '../utils/api';
 
 const Allocation = () => {
     const [hardware, setHardware] = useState([]);
@@ -47,10 +48,10 @@ const Allocation = () => {
         setLoading(true);
         try {
             const [hwRes, empRes, invRes, ewRes] = await Promise.all([
-                fetch('http://localhost:3001/api/hardware'),
-                fetch('http://localhost:3001/api/employees'),
-                fetch('http://localhost:3001/api/invoices'),
-                fetch('http://localhost:3001/api/ewaste/dashboard')
+                getJson('/hardware'),
+                getJson('/employees'),
+                getJson('/invoices'),
+                getJson('/ewaste/dashboard')
             ]);
 
             const [hwData, empData, invData, ewData] = await Promise.all([
@@ -62,7 +63,7 @@ const Allocation = () => {
 
             // Get all E-Waste item IDs
             const ewItemsRes = await Promise.all(
-                ewData.map(year => fetch(`http://localhost:3001/api/ewaste/${year.year}/items`).then(r => r.json()))
+                ewData.map(year => getJson(`/ewaste/${year.year}/items`).then(r => r.json()))
             );
             const allEWasteItems = ewItemsRes.flat();
 
@@ -73,7 +74,7 @@ const Allocation = () => {
 
             // Fetch sections config separately (error-safe)
             try {
-                const configRes = await fetch('http://localhost:3001/api/employees/config');
+                const configRes = await getJson('/employees/config');
                 const configData = await configRes.json();
                 // configData is an object like { sections: [...], posts: [...], wings: [...], offices: [...] }
                 const sections = (configData && configData.sections) ? configData.sections : [];
@@ -95,6 +96,25 @@ const Allocation = () => {
     };
 
     const normalize = (s) => String(s || '').trim().replace(/^0+/, '');
+
+    // --- Memoized Maps ---
+    const employeeMap = useMemo(() => {
+        const map = new Map();
+        employees.forEach(e => map.set(normalize(e.PIN), e));
+        return map;
+    }, [employees]);
+
+    const invoiceMap = useMemo(() => {
+        const map = new Map();
+        invoices.forEach(i => map.set(String(i.Bill_Number), i));
+        return map;
+    }, [invoices]);
+
+    const ewasteSet = useMemo(() => {
+        const set = new Set();
+        ewasteItems.forEach(ew => set.add(ew.hardware_id));
+        return set;
+    }, [ewasteItems]);
 
     // Computed filtered list — reacts instantly to any change
     const filteredList = useMemo(() => {
@@ -119,7 +139,7 @@ const Allocation = () => {
                 results = results.filter(h => {
                     try {
                         const allocatedStr = String(h.Allocated_To || '');
-                        const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+                        const emp = employeeMap.get(normalize(h.Allocated_To));
                         const edpMatch = String(h.EDP_Serial || '').toLowerCase().includes(query);
                         const pinMatch = allocatedStr.toLowerCase().includes(query);
                         const nameMatch = emp?.Name?.toLowerCase().includes(query);
@@ -134,7 +154,7 @@ const Allocation = () => {
 
             return results;
         } catch { return hardware; }
-    }, [searchQuery, filterItemName, filterStock, hardware, employees]);
+    }, [searchQuery, filterItemName, filterStock, hardware, employeeMap]);
 
     const handleOpenModal = (item) => {
         setSelectedItem(item);
@@ -144,7 +164,7 @@ const Allocation = () => {
             Issued_Location: item.Issued_Location || ''
         });
         if (item.Allocated_To !== 'STOCK') {
-            setSelectedEmployee(employees.find(e => normalize(e.PIN) === normalize(item.Allocated_To)));
+            setSelectedEmployee(employeeMap.get(normalize(item.Allocated_To)));
         } else {
             setSelectedEmployee(null);
         }
@@ -154,9 +174,8 @@ const Allocation = () => {
     const handlePINChange = (pin) => {
         setAllocationForm({ ...allocationForm, PIN: pin });
         const normalizedPin = normalize(pin);
-        const emp = employees.find(e => {
-            return normalize(e.PIN) === normalizedPin ||
-                (e.Name && e.Name.toLowerCase() === pin.toLowerCase());
+        const emp = employeeMap.get(normalizedPin) || employees.find(e => {
+            return e.Name && e.Name.toLowerCase() === pin.toLowerCase();
         });
         setSelectedEmployee(emp || null);
     };
@@ -168,16 +187,12 @@ const Allocation = () => {
             const userProfile = JSON.parse(localStorage.getItem('userProfile') || '{}');
             const changedBy = userProfile.name || 'System';
 
-            const res = await fetch('http://localhost:3001/api/hardware/allocate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: selectedItem.id,
-                    PIN: allocationForm.PIN || 'STOCK',
-                    Issued_Date: allocationForm.Issued_Date,
-                    Issued_Location: allocationForm.Issued_Location || '',
-                    changedBy: changedBy // Add username
-                })
+            const res = await postJson('/hardware/allocate', {
+                id: selectedItem.id,
+                PIN: allocationForm.PIN || 'STOCK',
+                Issued_Date: allocationForm.Issued_Date,
+                Issued_Location: allocationForm.Issued_Location || '',
+                changedBy: changedBy // Add username
             });
 
             if (res.ok) {
@@ -200,7 +215,7 @@ const Allocation = () => {
         setHistoryLoading(true);
         try {
             console.log('Fetching history for hardware ID:', item.id);
-            const res = await fetch(`http://localhost:3001/api/hardware/${item.id}/history`);
+            const res = await getJson(`/hardware/${item.id}/history`);
             console.log('History response status:', res.status);
             if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`);
@@ -217,7 +232,7 @@ const Allocation = () => {
     };
 
     const getPurchasedDate = (billNo) => {
-        const inv = invoices.find(i => i.Bill_Number === billNo);
+        const inv = invoiceMap.get(String(billNo));
         return inv ? formatDate(inv.Date) : '-';
     };
 
@@ -229,7 +244,7 @@ const Allocation = () => {
         try {
             if (isElectron()) {
                 // Fetch buffer first (no blank window!)
-                const res = await fetch('http://localhost:3001/api/allocation/download-buffer');
+                const res = await getJson('/allocation/download-buffer');
                 const data = await res.json();
                 if (!data.buffer) throw new Error('No data');
 
@@ -248,9 +263,7 @@ const Allocation = () => {
                 }
             } else {
                 // Browser fallback - blob download (no window.open!)
-                const response = await fetch('http://localhost:3001/api/allocation/download');
-                if (!response.ok) throw new Error('Download failed');
-                const blob = await response.blob();
+                const blob = await downloadBlob('/allocation/download');
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -282,11 +295,7 @@ const Allocation = () => {
                     const userProfile = JSON.parse(localStorage.getItem('userProfile') || '{}');
                     const changedBy = userProfile.name || 'System';
 
-                    const res = await fetch('http://localhost:3001/api/allocation/upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileData: event.target.result, changedBy })
-                    });
+                    const res = await postJson('/allocation/upload', { fileData: event.target.result, changedBy });
                     const result = await res.json();
                     if (res.ok) {
                         showAlert('success', result.message || 'Upload complete');
@@ -388,9 +397,9 @@ const Allocation = () => {
                         </thead>
                         <tbody>
                             {filteredList.map(h => {
-                                const emp = employees.find(e => normalize(e.PIN) === normalize(h.Allocated_To));
+                                const emp = employeeMap.get(normalize(h.Allocated_To));
                                 const isStock = h.Allocated_To === 'STOCK';
-                                const isInEWaste = ewasteItems.some(ew => ew.hardware_id === h.id);
+                                const isInEWaste = ewasteSet.has(h.id);
                                 const isAllocatedInEWaste = isInEWaste && !isStock;
 
                                 // Status-based row color: E-Waste allocation > Under Repair > Not Working
@@ -571,7 +580,7 @@ const Allocation = () => {
                                             {[...historyData]
                                                 .sort((a, b) => new Date(b.changed_at) - new Date(a.changed_at))
                                                 .map(h => {
-                                                    const toEmp = employees.find(e => String(e.PIN) === String(h.to_PIN));
+                                                    const toEmp = employeeMap.get(normalize(h.to_PIN));
 
                                                     // Format DD-MM-YYYY HH:mm (12hr format)
                                                     const dt = new Date(h.changed_at);

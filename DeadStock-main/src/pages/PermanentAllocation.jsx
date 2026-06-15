@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { formatDate } from '../utils/formatDate';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSync, faPlus, faFilePdf, faArchive } from '@fortawesome/free-solid-svg-icons';
+import { getJson, apiFetch, downloadBlob } from '../utils/api';
 
 const PermanentAllocation = () => {
     const [data, setData] = useState([]);
@@ -33,7 +34,7 @@ const PermanentAllocation = () => {
     const fetchPermanentAllocations = async () => {
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:3001/api/permanent-allocation');
+            const res = await getJson('/permanent-allocation');
             const resData = await res.json();
             setData(resData || []);
         } catch (error) {
@@ -49,7 +50,7 @@ const PermanentAllocation = () => {
         setLoading(true);
         try {
             // Fetch ALL hardware to select from
-            const res = await fetch('http://localhost:3001/api/hardware');
+            const res = await getJson('/hardware');
             const hwData = await res.json();
             setHardwareList(hwData);
             setWizardStep(1);
@@ -97,7 +98,7 @@ const PermanentAllocation = () => {
             }));
             formData.append('notesheet', notesheetFile);
 
-            const res = await fetch('http://localhost:3001/api/permanent-allocation/transfer', {
+            const res = await apiFetch('/permanent-allocation/transfer', {
                 method: 'POST',
                 body: formData
             });
@@ -156,9 +157,7 @@ const PermanentAllocation = () => {
                     <button className="btn btn-outline" onClick={async () => {
                         setLoading(true);
                         try {
-                            const res = await fetch('http://localhost:3001/api/permanent-allocation/download-excel');
-                            if (!res.ok) throw new Error('Download failed');
-                            const blob = await res.blob();
+                            const blob = await downloadBlob('/permanent-allocation/download-excel');
                             const url = window.URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;

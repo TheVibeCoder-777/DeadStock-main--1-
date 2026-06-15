@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faSync, faTachometerAlt, faExclamationTriangle, faBox, faUser, faFileAlt, faWrench } from '@fortawesome/free-solid-svg-icons';
 import { formatDate } from '../utils/formatDate';
+import { getJson, postJson, putJson, deleteJson } from '../utils/api';
 
 const Dashboard = () => {
     const [nocQuery, setNocQuery] = useState('');
@@ -31,9 +32,14 @@ const Dashboard = () => {
 
     // Load retirement suggestions and stock data on mount
     useEffect(() => {
-        fetchRetirementSuggestions();
-        fetchStockData();
-        fetchHardwareStatus();
+        const loadInitialData = async () => {
+            await Promise.all([
+                fetchRetirementSuggestions(),
+                fetchStockData(),
+                fetchHardwareStatus()
+            ]);
+        };
+        loadInitialData();
     }, []);
 
     // NOC Search
@@ -47,7 +53,7 @@ const Dashboard = () => {
         setNocLoading(true);
         setNocSearched(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/dashboard/noc-search?query=${encodeURIComponent(nocQuery)}`);
+            const res = await getJson(`/dashboard/noc-search?query=${encodeURIComponent(nocQuery)}`);
             const data = await res.json();
             setNocResult(data);
         } catch (error) {
@@ -69,7 +75,7 @@ const Dashboard = () => {
     const fetchRetirementSuggestions = async () => {
         setSuggestionsLoading(true);
         try {
-            const res = await fetch('http://localhost:3001/api/dashboard/retirement-suggestions');
+            const res = await getJson('/dashboard/retirement-suggestions');
             const data = await res.json();
             setRetirementSuggestions(data);
         } catch (error) {
@@ -84,7 +90,7 @@ const Dashboard = () => {
     const fetchStockData = async () => {
         setStockLoading(true);
         try {
-            const res = await fetch('http://localhost:3001/api/dashboard/stock-count');
+            const res = await getJson('/dashboard/stock-count');
             const data = await res.json();
             setStockData(data);
         } catch (error) {
@@ -98,7 +104,7 @@ const Dashboard = () => {
     // Fetch Hardware Status Counts
     const fetchHardwareStatus = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/dashboard/hardware-status');
+            const res = await getJson('/dashboard/hardware-status');
             const data = await res.json();
             setStatusCounts(data);
         } catch (error) {
@@ -111,7 +117,7 @@ const Dashboard = () => {
         setSelectedStatusType(type);
         try {
             const queryParam = isLocation ? `location=${encodeURIComponent(type)}` : `status=${encodeURIComponent(type)}`;
-            const res = await fetch(`http://localhost:3001/api/dashboard/hardware-status?${queryParam}`);
+            const res = await getJson(`/dashboard/hardware-status?${queryParam}`);
             const data = await res.json();
             setStatusDetailList(data);
         } catch (error) {
@@ -123,11 +129,7 @@ const Dashboard = () => {
     // Change hardware status from dashboard
     const handleStatusChange = async (hardwareId, newStatus) => {
         try {
-            const res = await fetch('http://localhost:3001/api/dashboard/hardware-status/update', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: hardwareId, status: newStatus })
-            });
+            const res = await putJson('/dashboard/hardware-status/update', { id: hardwareId, status: newStatus });
             if (res.ok) {
                 showAlert('success', `Status changed to ${newStatus}`);
                 fetchHardwareStatus();
@@ -145,7 +147,7 @@ const Dashboard = () => {
     const handleTileClick = async (itemName) => {
         setSelectedItem(itemName);
         try {
-            const res = await fetch(`http://localhost:3001/api/dashboard/stock-count?item=${encodeURIComponent(itemName)}`);
+            const res = await getJson(`/dashboard/stock-count?item=${encodeURIComponent(itemName)}`);
             const data = await res.json();
             setBifurcationData(data);
         } catch (error) {
@@ -157,14 +159,10 @@ const Dashboard = () => {
     // Move to Stock action
     const handleMoveToStock = async (hardwareId) => {
         try {
-            const res = await fetch('http://localhost:3001/api/hardware/allocate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: hardwareId,
-                    PIN: 'STOCK',
-                    Issued_Date: new Date().toISOString().split('T')[0]
-                })
+            const res = await postJson('/hardware/allocate', {
+                id: hardwareId,
+                PIN: 'STOCK',
+                Issued_Date: new Date().toISOString().split('T')[0]
             });
 
             if (res.ok) {
@@ -190,12 +188,7 @@ const Dashboard = () => {
         console.log('Confirmation accepted, sending DELETE request...');
 
         try {
-            const url = `http://localhost:3001/api/employees/${employeeId}`;
-            console.log('DELETE URL:', url);
-
-            const res = await fetch(url, {
-                method: 'DELETE'
-            });
+            const res = await deleteJson(`/employees/${employeeId}`);
 
             console.log('Response status:', res.status);
             console.log('Response ok:', res.ok);

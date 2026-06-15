@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { formatDate } from '../utils/formatDate';
+import { getJson, postJson, putJson, deleteJson, downloadBlob, apiFetch, getErrorMessage } from '../utils/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faPlus,
@@ -45,7 +46,7 @@ const Employees = () => {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:3001/api/employees');
+            const res = await getJson('/employees');
             const data = await res.json();
             setEmployees(data);
         } catch (error) {
@@ -57,7 +58,7 @@ const Employees = () => {
 
     const fetchConfig = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/employees/config');
+            const res = await getJson('/employees/config');
             const data = await res.json();
             setConfig(data);
         } catch (error) {
@@ -125,24 +126,18 @@ const Employees = () => {
 
         setProcessing(true);
         try {
-            const url = editEmployee
-                ? `http://localhost:3001/api/employees/${editEmployee.PIN}`
-                : 'http://localhost:3001/api/employees';
-            const method = editEmployee ? 'PUT' : 'POST';
-
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+            const endpoint = editEmployee ? `/employees/${editEmployee.PIN}` : '/employees';
+            const res = editEmployee 
+                ? await putJson(endpoint, formData) 
+                : await postJson(endpoint, formData);
 
             if (res.ok) {
                 showAlert('success', editEmployee ? 'Employee Updated' : 'Employee Added');
                 setShowModal(false);
                 fetchEmployees();
             } else {
-                const err = await res.json();
-                showAlert('error', err.error || 'Server error');
+                const errorMsg = await getErrorMessage(res);
+                showAlert('error', errorMsg);
             }
         } catch (error) {
             showAlert('error', 'Fetch error');
@@ -155,7 +150,7 @@ const Employees = () => {
         if (!window.confirm('Delete this employee?')) return;
         setProcessing(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/employees/${pin}`, { method: 'DELETE' });
+            const res = await deleteJson(`/employees/${pin}`);
             if (res.ok) {
                 showAlert('success', 'Deleted');
                 fetchEmployees();
@@ -170,9 +165,7 @@ const Employees = () => {
     const handleDownloadExcel = async () => {
         setProcessing(true);
         try {
-            const response = await fetch('http://localhost:3001/api/employees/download');
-            if (!response.ok) throw new Error('Download failed');
-            const blob = await response.blob();
+            const blob = await downloadBlob('/employees/download');
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -197,7 +190,7 @@ const Employees = () => {
         formData.append('file', file);
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/employees/upload', {
+            const res = await apiFetch('/employees/upload', {
                 method: 'POST',
                 body: formData
             });

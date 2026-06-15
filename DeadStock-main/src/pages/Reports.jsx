@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDownload, faChartBar, faSync } from '@fortawesome/free-solid-svg-icons';
+import { getJson, downloadBlob } from '../utils/api';
 
 const Reports = () => {
     const [activeTab, setActiveTab] = useState('hardware');
@@ -22,8 +23,8 @@ const Reports = () => {
         setLoading(true);
         try {
             const [hwRes, swRes] = await Promise.all([
-                fetch('http://localhost:3001/api/reports/hardware'),
-                fetch('http://localhost:3001/api/reports/software')
+                getJson('/reports/hardware'),
+                getJson('/reports/software')
             ]);
 
             if (hwRes.ok && swRes.ok) {
@@ -81,9 +82,7 @@ const Reports = () => {
     const handleDownloadHardware = async () => {
         setProcessing(true);
         try {
-            const response = await fetch('http://localhost:3001/api/reports/hardware/download');
-            if (!response.ok) throw new Error('Download failed');
-            const blob = await response.blob();
+            const blob = await downloadBlob('/reports/hardware/download');
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -103,9 +102,7 @@ const Reports = () => {
     const handleDownloadSoftware = async () => {
         setProcessing(true);
         try {
-            const response = await fetch('http://localhost:3001/api/reports/software/download');
-            if (!response.ok) throw new Error('Download failed');
-            const blob = await response.blob();
+            const blob = await downloadBlob('/reports/software/download');
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { getJson, postJson, putJson } from '../utils/api';
 import { faPlus, faTrash, faEdit, faSave, faTimes } from '@fortawesome/free-solid-svg-icons';
 
 // Table-based ConfigSection with Edit and Delete
@@ -129,7 +130,7 @@ const EmployeeConfig = () => {
 
     const fetchConfig = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/employees/config');
+            const res = await getJson('/employees/config');
             if (res.ok) {
                 const data = await res.json();
                 setConfig(data);
@@ -171,11 +172,7 @@ const EmployeeConfig = () => {
         if (!newValue || oldValue === newValue) return;
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/employees/config/rename', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, oldValue, newValue })
-            });
+            const res = await putJson('/employees/config/rename', { type, oldValue, newValue });
             const data = await res.json();
             if (res.ok) {
                 showAlert('success', data.message);
@@ -193,11 +190,7 @@ const EmployeeConfig = () => {
     const saveConfig = async (type, values) => {
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/employees/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, values })
-            });
+            const res = await postJson('/employees/config', { type, values });
             if (res.ok) {
                 showAlert('success', 'Updated Successfully');
                 await fetchConfig();

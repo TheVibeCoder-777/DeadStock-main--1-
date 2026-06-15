@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { getJson, postJson } from '../utils/api';
 import {
     faFolderOpen,
     faClock,
@@ -98,7 +99,7 @@ const Backup = () => {
         }
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/backup/full');
+            const res = await getJson('/backup/full');
             const data = await res.json();
 
             if (!data.buffer) throw new Error('No backup data received');
@@ -240,11 +241,7 @@ const Backup = () => {
             }
             const base64 = btoa(binary);
 
-            const res = await fetch('http://localhost:3001/api/backup/restore', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dbBuffer: base64 })
-            });
+            const res = await postJson('/backup/restore', { dbBuffer: base64 });
 
             const data = await res.json();
 
@@ -335,7 +332,7 @@ const Backup = () => {
                 </div>
 
                 {/* Manual Backup Card */}
-                <div className="card config-card flex-center">
+                <div className="card config-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                     <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <FontAwesomeIcon icon={faDownload} style={{ color: 'teal' }} />
                         Manual Backup
@@ -361,7 +358,7 @@ const Backup = () => {
                 </div>
 
                 {/* Restore Card */}
-                <div className="card config-card flex-center">
+                <div className="card config-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                     <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <FontAwesomeIcon icon={faUpload} style={{ color: '#e65100' }} />
                         Restore Database

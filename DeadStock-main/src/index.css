@@ -73,7 +73,7 @@
 .text-right  { text-align: right; }
 .text-left   { text-align: left; }
 .text-nowrap  { white-space: nowrap; }
-.text-wrap-break { white-space: normal; word-break: break-word; }
+.text-wrap-break { white-space: normal !important; word-break: break-word !important; }
 .text-bold   { font-weight: 700; }
 .text-semibold { font-weight: 600; }
 .text-sm     { font-size: 0.85rem; }

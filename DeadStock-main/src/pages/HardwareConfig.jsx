@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { getJson, postJson, putJson, deleteJson, apiFetch } from '../utils/api';
 import { faTrash, faPlus, faEdit, faSave, faTimes, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 
 const HardwareConfig = () => {
@@ -36,14 +37,14 @@ const HardwareConfig = () => {
     }, []);
 
     const fetchConfig = async () => {
-        const res = await fetch('http://localhost:3001/api/hardware/config');
+        const res = await getJson('/hardware/config');
         const data = await res.json();
         setConfigs(data);
     };
 
     const fetchMakes = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/make/config');
+            const res = await getJson('/make/config');
             const data = await res.json();
             setMakes(data);
         } catch (error) {
@@ -53,7 +54,7 @@ const HardwareConfig = () => {
 
     const fetchCapacityConfig = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/capacity/config');
+            const res = await getJson('/capacity/config');
             const data = await res.json();
             setCapacityConfig(data);
         } catch (error) {
@@ -63,7 +64,7 @@ const HardwareConfig = () => {
 
     const fetchColumnVisibility = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/column-visibility/config');
+            const res = await getJson('/column-visibility/config');
             const data = await res.json();
             setColumnVisibility(data);
         } catch (error) {
@@ -85,11 +86,7 @@ const HardwareConfig = () => {
 
     const saveColVisibility = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/column-visibility/config', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ category: colVisCategory, hiddenColumns: colVisSelection })
-            });
+            const res = await putJson('/column-visibility/config', { category: colVisCategory, hiddenColumns: colVisSelection });
             if (res.ok) {
                 const data = await res.json();
                 setColumnVisibility(data.columnVisibility);
@@ -106,11 +103,7 @@ const HardwareConfig = () => {
     const handleAdd = async () => {
         if (!category || !prefix) return showAlert('error', 'Fill all fields');
 
-        const res = await fetch('http://localhost:3001/api/hardware/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category: category.toUpperCase(), prefix: prefix.toUpperCase() })
-        });
+        const res = await postJson('/hardware/config', { category: category.toUpperCase(), prefix: prefix.toUpperCase() });
 
         if (res.ok) {
             showAlert('success', 'Category Added - Sidebar Updated');
@@ -126,11 +119,7 @@ const HardwareConfig = () => {
     const handleAddMake = async () => {
         if (!newMake.trim()) return showAlert('error', 'Enter company name');
 
-        const res = await fetch('http://localhost:3001/api/make/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newMake.trim() })
-        });
+        const res = await postJson('/make/config', { name: newMake.trim() });
 
         if (res.ok) {
             showAlert('success', 'Company Added');
@@ -145,9 +134,7 @@ const HardwareConfig = () => {
     const handleDeleteMake = async (name) => {
         if (!confirm(`Delete "${name}" from the list?`)) return;
 
-        const res = await fetch(`http://localhost:3001/api/make/config/${encodeURIComponent(name)}`, {
-            method: 'DELETE'
-        });
+        const res = await deleteJson(`/make/config/${encodeURIComponent(name)}`);
 
         if (res.ok) {
             showAlert('success', 'Company Deleted');
@@ -161,11 +148,7 @@ const HardwareConfig = () => {
     const handleAddCapacity = async () => {
         if (!newCapItem || !newCapValue.trim()) return showAlert('error', 'Select Item Name and enter Capacity');
 
-        const res = await fetch('http://localhost:3001/api/capacity/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ Item_Name: newCapItem, Capacity: newCapValue.trim() })
-        });
+        const res = await postJson('/capacity/config', { Item_Name: newCapItem, Capacity: newCapValue.trim() });
 
         const data = await res.json();
         if (res.ok) {
@@ -180,14 +163,10 @@ const HardwareConfig = () => {
     const handleEditCapacity = async () => {
         if (!editCapValue.trim() || !editingCap) return;
 
-        const res = await fetch('http://localhost:3001/api/capacity/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                Item_Name: editingCap.Item_Name,
-                oldCapacity: editingCap.Capacity,
-                newCapacity: editCapValue.trim()
-            })
+        const res = await putJson('/capacity/config', {
+            Item_Name: editingCap.Item_Name,
+            oldCapacity: editingCap.Capacity,
+            newCapacity: editCapValue.trim()
         });
 
         const data = await res.json();
@@ -204,7 +183,7 @@ const HardwareConfig = () => {
     const handleDeleteCapacity = async (Item_Name, Capacity) => {
         if (!confirm(`Delete "${Capacity}" from ${Item_Name}?`)) return;
 
-        const res = await fetch('http://localhost:3001/api/capacity/config', {
+        const res = await apiFetch('/capacity/config', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ Item_Name, Capacity })

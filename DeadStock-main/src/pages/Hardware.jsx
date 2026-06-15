@@ -3,6 +3,7 @@ import { formatDate } from '../utils/formatDate';
 import { useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTimes, faEdit, faTrash, faDownload, faFileExcel } from '@fortawesome/free-solid-svg-icons';
+import { getJson, postJson, putJson, deleteJson } from '../utils/api';
 
 const Hardware = () => {
     const { category } = useParams();
@@ -128,30 +129,42 @@ const Hardware = () => {
         .map(c => c.Capacity);
 
     useEffect(() => {
-        fetchHardware();
-        fetchInvoices();
-        fetchMakeOptions();
-        fetchCapacityConfig();
-        fetchColumnVisibility();
+        const loadInitialData = async () => {
+            setLoading(true);
+            try {
+                await Promise.all([
+                    fetchHardware(false),
+                    fetchInvoices(),
+                    fetchMakeOptions(),
+                    fetchCapacityConfig(),
+                    fetchColumnVisibility()
+                ]);
+            } catch (err) {
+                console.error('Initialization error:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadInitialData();
     }, [urlCategory]);
 
     // --- API Calls ---
-    const fetchHardware = async () => {
-        setLoading(true);
+    const fetchHardware = async (withLoading = true) => {
+        if (withLoading) setLoading(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/hardware?category=${encodeURIComponent(urlCategory)}`);
+            const res = await getJson(`/hardware?category=${encodeURIComponent(urlCategory)}`);
             const data = await res.json();
             setHardwareList(data);
         } catch (error) {
             console.error(error);
         } finally {
-            setLoading(false);
+            if (withLoading) setLoading(false);
         }
     };
 
     const fetchInvoices = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/invoices');
+            const res = await getJson('/invoices');
             const data = await res.json();
             setInvoices(data);
         } catch (error) {
@@ -161,7 +174,7 @@ const Hardware = () => {
 
     const fetchCapacityConfig = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/capacity/config');
+            const res = await getJson('/capacity/config');
             const data = await res.json();
             setCapacityConfig(data);
         } catch (error) {
@@ -171,7 +184,7 @@ const Hardware = () => {
 
     const fetchColumnVisibility = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/column-visibility/config');
+            const res = await getJson('/column-visibility/config');
             const data = await res.json();
             setColumnVisibilityConfig(data);
         } catch (error) {
@@ -181,13 +194,19 @@ const Hardware = () => {
 
     const fetchMakeOptions = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/make/config');
+            const res = await getJson('/make/config');
             const data = await res.json();
             setMakeOptions(data);
         } catch (error) {
             console.error('Failed to fetch make options:', error);
         }
     };
+
+    const invoiceMap = useMemo(() => {
+        const map = new Map();
+        invoices.forEach(inv => map.set(String(inv.Bill_Number), inv));
+        return map;
+    }, [invoices]);
 
     // --- Reactive Search (computed) ---
     const filteredList = useMemo(() => {
@@ -198,7 +217,7 @@ const Hardware = () => {
                 if (searchCriteria === 'Supplier Name') {
                     results = hardwareList.filter(item => {
                         try {
-                            const bill = invoices.find(inv => String(inv.Bill_Number) === String(item.Bill_Number));
+                            const bill = invoiceMap.get(String(item.Bill_Number));
                             const supplierName = bill ? String(bill.Firm_Name || '').toLowerCase() : '';
                             return supplierName.includes(query);
                         } catch { return false; }
@@ -215,7 +234,7 @@ const Hardware = () => {
             } catch { results = hardwareList; }
         }
         return results;
-    }, [searchQuery, searchCriteria, hardwareList, invoices]);
+    }, [searchCriteria, searchQuery, hardwareList, invoiceMap]);
 
     const handleClearSearch = () => {
         setSearchQuery('');
@@ -224,7 +243,7 @@ const Hardware = () => {
     // --- Add Item Wizard ---
     const handleSelectInvoice = (e) => {
         const billNo = e.target.value;
-        const inv = invoices.find(i => i.Bill_Number === billNo);
+        const inv = invoiceMap.get(String(billNo));
         setSelectedInvoice(inv);
         setSelectedInvoiceItem(null); // Reset item selection
     };
@@ -232,7 +251,7 @@ const Hardware = () => {
     // Helper: look up purchase date from invoices by Bill Number
     const getPurchasedDate = (billNo) => {
         if (!billNo) return '-';
-        const inv = invoices.find(i => String(i.Bill_Number) === String(billNo));
+        const inv = invoiceMap.get(String(billNo));
         return inv ? formatDate(inv.Date) : '-';
     };
 
@@ -280,7 +299,7 @@ const Hardware = () => {
 
         // Fetch proposed serial from server and show confirmation popup
         try {
-            const previewRes = await fetch(`http://localhost:3001/api/hardware/next-serial?category=${encodeURIComponent(urlCategory)}`);
+            const previewRes = await getJson(`/hardware/next-serial?category=${encodeURIComponent(urlCategory)}`);
             const previewData = await previewRes.json();
             setProposedSerial(previewData.proposedSerial || '');
             setSerialOverride(previewData.proposedSerial || '');
@@ -302,11 +321,7 @@ const Hardware = () => {
                 ...(idx === 0 && serialOverride && serialOverride !== proposedSerial ? { EDP_Serial_Override: serialOverride } : {})
             }));
 
-            const res = await fetch('http://localhost:3001/api/hardware', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(itemsToSend)
-            });
+            const res = await postJson('/hardware', itemsToSend);
 
             if (res.ok) {
                 const result = await res.json();
@@ -348,11 +363,7 @@ const Hardware = () => {
         }
         setProcessing(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/hardware/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editFormData)
-            });
+            const res = await putJson(`/hardware/${id}`, editFormData);
             if (res.ok) {
                 showAlert('success', 'Updated Successfully');
                 setEditRowId(null);
@@ -372,7 +383,7 @@ const Hardware = () => {
         if (!window.confirm('Are you sure you want to delete this item?')) return;
         setProcessing(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/hardware/${id}`, { method: 'DELETE' });
+            const res = await deleteJson(`/hardware/${id}`);
             if (res.ok) {
                 showAlert('success', 'Deleted');
                 fetchHardware();
@@ -404,11 +415,7 @@ const Hardware = () => {
     const handleBulkDelete = async () => {
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/hardware/bulk-delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedIds })
-            });
+            const res = await postJson('/hardware/bulk-delete', { ids: selectedIds });
             if (res.ok) {
                 showAlert('success', 'Items deleted');
                 setSelectedIds([]);
@@ -429,13 +436,9 @@ const Hardware = () => {
         }
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/hardware/bulk-update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ids: selectedIds,
-                    updates: bulkAMCData
-                })
+            const res = await postJson('/hardware/bulk-update', {
+                ids: selectedIds,
+                updates: bulkAMCData
             });
             if (res.ok) {
                 showAlert('success', 'Items updated');
@@ -886,7 +889,7 @@ const Hardware = () => {
                                         value={selectedInvoice?.Bill_Number || ''}
                                         onChange={e => {
                                             const value = e.target.value;
-                                            const inv = invoices.find(i => i.Bill_Number === value);
+                                            const inv = invoiceMap.get(String(value));
                                             if (inv) {
                                                 handleSelectInvoice({ target: { value } });
                                             } else {

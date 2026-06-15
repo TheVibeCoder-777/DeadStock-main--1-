@@ -3,6 +3,7 @@ import { formatDate } from '../utils/formatDate';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTimes, faTrash, faCheckCircle, faFileAlt, faDownload, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { getJson, postJson, deleteJson } from '../utils/api';
 
 const EWasteDashboard = () => {
     const navigate = useNavigate();
@@ -30,7 +31,7 @@ const EWasteDashboard = () => {
     const fetchYears = async () => {
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:3001/api/ewaste/dashboard');
+            const res = await getJson('/ewaste/dashboard');
             const data = await res.json();
             setYears(data);
         } catch (error) {
@@ -52,11 +53,7 @@ const EWasteDashboard = () => {
         }
 
         try {
-            const res = await fetch('http://localhost:3001/api/ewaste/years', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ year: newYear })
-            });
+            const res = await postJson('/ewaste/years', { year: newYear });
 
             if (res.ok) {
                 showAlert('success', 'E-Waste year created');
@@ -76,7 +73,7 @@ const EWasteDashboard = () => {
         setSelectedYear(year);
         setShowBreakdownModal(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/${year.year}/breakdown`);
+            const res = await getJson(`/ewaste/${year.year}/breakdown`);
             const data = await res.json();
             setBreakdown(data);
         } catch (error) {
@@ -107,9 +104,7 @@ const EWasteDashboard = () => {
         }
 
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/years/${selectedYear.year}`, {
-                method: 'DELETE'
-            });
+            const res = await deleteJson(`/ewaste/years/${selectedYear.year}`);
 
             if (res.ok) {
                 showAlert('success', 'E-Waste year deleted');

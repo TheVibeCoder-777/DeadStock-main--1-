@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { formatDate } from '../utils/formatDate';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { getJson, postJson, putJson, deleteJson, downloadBlob, apiFetch } from '../utils/api';
 import {
     faPlus,
     faEdit,
@@ -57,11 +58,11 @@ const Software = () => {
         if (!silent) setLoading(true);
         try {
             const [swRes, empRes, invRes, supRes, cfgRes] = await Promise.all([
-                fetch('http://localhost:3001/api/software'),
-                fetch('http://localhost:3001/api/employees'),
-                fetch('http://localhost:3001/api/invoices'),
-                fetch('http://localhost:3001/api/suppliers'),
-                fetch('http://localhost:3001/api/employees/config')
+                getJson('/software'),
+                getJson('/employees'),
+                getJson('/invoices'),
+                getJson('/suppliers'),
+                getJson('/employees/config')
             ]);
 
             const [swData, empData, invData, supData, cfgData] = await Promise.all([
@@ -192,15 +193,8 @@ const Software = () => {
                 fileName: fileName
             };
 
-            const url = editingItem
-                ? `http://localhost:3001/api/software/${editingItem.id}`
-                : 'http://localhost:3001/api/software';
-
-            const res = await fetch(url, {
-                method: editingItem ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const endpoint = editingItem ? `/software/${editingItem.id}` : '/software';
+            const res = editingItem ? await putJson(endpoint, payload) : await postJson(endpoint, payload);
 
             if (res.ok) {
                 showAlert('success', editingItem ? 'Software updated' : 'Software created');
@@ -220,9 +214,7 @@ const Software = () => {
         if (!confirm('Delete this software entry?')) return;
 
         try {
-            const res = await fetch(`http://localhost:3001/api/software/${id}`, {
-                method: 'DELETE'
-            });
+            const res = await deleteJson(`/software/${id}`);
 
             if (res.ok) {
                 showAlert('success', 'Software deleted');
@@ -257,9 +249,7 @@ const Software = () => {
 
         setProcessing(true);
         try {
-            await Promise.all(selectedIds.map(id =>
-                fetch(`http://localhost:3001/api/software/${id}`, { method: 'DELETE' })
-            ));
+            await Promise.all(selectedIds.map(id => deleteJson(`/software/${id}`)));
             showAlert('success', `${selectedIds.length} items deleted successfully`);
             setSelectedIds([]);
             fetchData();
@@ -274,9 +264,7 @@ const Software = () => {
     const handleDownloadExcel = async () => {
         setProcessing(true);
         try {
-            const response = await fetch('http://localhost:3001/api/software/download');
-            if (!response.ok) throw new Error('Download failed');
-            const blob = await response.blob();
+            const blob = await downloadBlob('/software/download');
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -301,7 +289,7 @@ const Software = () => {
         formData.append('file', file);
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/software/upload', {
+            const res = await apiFetch('/software/upload', {
                 method: 'POST',
                 body: formData
             });
@@ -402,8 +390,8 @@ const Software = () => {
                                 <th>Valid Upto</th>
                                 <th>Issued To</th>
                                 <th className="col-wide">License Code</th>
-                                <th className="col-xwide">Additional Info</th>
-                                <th>Multiple Issued</th>
+                                <th className="col-wide">Additional Info</th>
+                                <th className="col-wide">Multiple Issued</th>
                                 <th>PDF</th>
                             </tr>
                         </thead>
@@ -437,8 +425,8 @@ const Software = () => {
                                     <td>{formatDate(item.Valid_Upto)}</td>
                                     <td>{item.Issued_To}</td>
                                     <td className="text-wrap-break col-wide">{item.License_Code}</td>
-                                    <td className="text-wrap-break col-xwide">{item.Additional_Info}</td>
-                                    <td>{Array.isArray(item.Multiple_Issued) ? item.Multiple_Issued.join(', ') : item.Multiple_Issued}</td>
+                                    <td className="text-wrap-break col-wide">{item.Additional_Info}</td>
+                                    <td className="text-wrap-break col-wide">{Array.isArray(item.Multiple_Issued) ? item.Multiple_Issued.join(', ') : item.Multiple_Issued}</td>
                                     <td>
                                         {item.Document ?
                                             <a href={`http://localhost:3001/uploads/${item.Document}`} target="_blank" rel="noreferrer" title="View PDF">

@@ -9,8 +9,34 @@ import {
     faFileExcel,
     faDownload,
     faLightbulb,
-    faTimes
+    faTimes,
+    faSync
 } from '@fortawesome/free-solid-svg-icons';
+import { getJson, postJson, deleteJson, downloadBlob, apiFetch } from '../utils/api';
+
+const formatDateHelper = (val) => {
+    if (!val && val !== 0) return '-';
+    const str = String(val).trim();
+    if (!str) return '-';
+    if (typeof val === 'number' || /^\d+$/.test(str)) {
+        const num = Number(str);
+        if (num > 10000 && num < 100000) {
+            const date = new Date((num - 25569) * 86400 * 1000);
+            const dd = String(date.getUTCDate()).padStart(2, '0');
+            const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+            const yyyy = date.getUTCFullYear();
+            return `${dd}-${mm}-${yyyy}`;
+        }
+    }
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+        const dd = String(parsed.getDate()).padStart(2, '0');
+        const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+        const yyyy = parsed.getFullYear();
+        return `${dd}-${mm}-${yyyy}`;
+    }
+    return str;
+};
 
 const EWasteTable = () => {
     const { year } = useParams();
@@ -19,6 +45,8 @@ const EWasteTable = () => {
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [alert, setAlert] = useState(null);
+    const [activeTab, setActiveTab] = useState('list');
+    const [reportRefDate, setReportRefDate] = useState(new Date());
 
     // Hardware search
     const [showSearchModal, setShowSearchModal] = useState(false);
@@ -43,7 +71,7 @@ const EWasteTable = () => {
 
     const fetchYearData = async () => {
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/years/${year}`);
+            const res = await getJson(`/ewaste/years/${year}`);
             const data = await res.json();
             setYearData(data);
         } catch (error) {
@@ -54,7 +82,7 @@ const EWasteTable = () => {
     const fetchItems = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/${year}/items`);
+            const res = await getJson(`/ewaste/${year}/items`);
             const data = await res.json();
             setItems(data);
         } catch (error) {
@@ -66,7 +94,7 @@ const EWasteTable = () => {
 
     const fetchSuggestions = async () => {
         try {
-            const res = await fetch('http://localhost:3001/api/ewaste/suggestions');
+            const res = await getJson('/ewaste/suggestions');
             const data = await res.json();
             setSuggestions(data);
         } catch (error) {
@@ -82,7 +110,7 @@ const EWasteTable = () => {
     const handleOpenSearch = async () => {
         setShowSearchModal(true);
         try {
-            const res = await fetch('http://localhost:3001/api/hardware');
+            const res = await getJson('/hardware');
             const data = await res.json();
             setAllHardware(data);
         } catch (error) {
@@ -121,11 +149,7 @@ const EWasteTable = () => {
 
         setProcessing(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/${year}/items`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hardware_ids: selectedHardware.map(h => h.id) })
-            });
+            const res = await postJson(`/ewaste/${year}/items`, { hardware_ids: selectedHardware.map(h => h.id) });
 
             if (res.ok) {
                 const result = await res.json();
@@ -152,11 +176,7 @@ const EWasteTable = () => {
 
         setProcessing(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/${year}/items`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hardware_ids: suggestions.map(s => s.id) })
-            });
+            const res = await postJson(`/ewaste/${year}/items`, { hardware_ids: suggestions.map(s => s.id) });
 
             if (res.ok) {
                 const result = await res.json();
@@ -175,12 +195,10 @@ const EWasteTable = () => {
     };
 
     const handleRemoveItem = async (itemId) => {
-        if (!confirm('Remove this item from E-Waste?')) return;
+        if (!window.confirm('Remove this item from E-Waste?')) return;
 
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/${year}/items/${itemId}`, {
-                method: 'DELETE'
-            });
+            const res = await deleteJson(`/ewaste/${year}/items/${itemId}`);
 
             if (res.ok) {
                 showAlert('success', 'Item removed');
@@ -197,10 +215,7 @@ const EWasteTable = () => {
     const handleDownloadExcel = async () => {
         setProcessing(true);
         try {
-            const response = await fetch(`http://localhost:3001/api/ewaste/${year}/download`);
-            if (!response.ok) throw new Error('Download failed');
-
-            const blob = await response.blob();
+            const blob = await downloadBlob(`/ewaste/${year}/download`);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.style.display = 'none';
@@ -219,15 +234,36 @@ const EWasteTable = () => {
         }
     };
 
+    const handleDownloadReportExcel = async () => {
+        setProcessing(true);
+        try {
+            const dateStr = reportRefDate.toISOString();
+            const blob = await downloadBlob(`/ewaste/${year}/report/download?refDate=${encodeURIComponent(dateStr)}`);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `ewaste_report_${year}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showAlert('success', 'Report downloaded successfully');
+        } catch (error) {
+            console.error('Download error:', error);
+            showAlert('error', 'Error downloading report');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
     const handleBulkUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         setProcessing(true);
         try {
-            // Check if Electron API is available
             if (window.electronAPI && window.electronAPI.saveFile) {
-                // Electron mode: Use IPC to save file first
                 const arrayBuffer = await file.arrayBuffer();
                 const saveResult = await window.electronAPI.saveFile({
                     name: file.name,
@@ -238,15 +274,10 @@ const EWasteTable = () => {
                     throw new Error(saveResult.error || 'Failed to save file locally');
                 }
 
-                // Tell server to process the saved file
                 const savedFileName = saveResult.path.split('\\').pop() || saveResult.path.split('/').pop();
-                const res = await fetch(`http://localhost:3001/api/ewaste/${year}/upload`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fileName: savedFileName,
-                        processOnly: true
-                    })
+                const res = await postJson(`/ewaste/${year}/upload`, {
+                    fileName: savedFileName,
+                    processOnly: true
                 });
 
                 const result = await res.json();
@@ -257,15 +288,10 @@ const EWasteTable = () => {
                     showAlert('error', result.error || 'Upload failed');
                 }
             } else {
-                // Browser fallback: Use base64 encoding
                 const reader = new FileReader();
                 reader.onload = async (event) => {
                     try {
-                        const res = await fetch(`http://localhost:3001/api/ewaste/${year}/upload`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ fileData: event.target.result })
-                        });
+                        const res = await postJson(`/ewaste/${year}/upload`, { fileData: event.target.result });
                         const result = await res.json();
                         if (res.ok) {
                             showAlert('success', result.message || 'Upload complete');
@@ -297,7 +323,7 @@ const EWasteTable = () => {
             return;
         }
 
-        if (!confirm('Mark this E-Waste year as completed? This will remove all items from the main hardware inventory and lock this table.')) {
+        if (!window.confirm('Mark this E-Waste year as completed? This will remove all items from the main hardware inventory and lock this table.')) {
             return;
         }
 
@@ -306,7 +332,7 @@ const EWasteTable = () => {
         formData.append('document', file);
 
         try {
-            const res = await fetch(`http://localhost:3001/api/ewaste/years/${year}/complete`, {
+            const res = await apiFetch(`/ewaste/years/${year}/complete`, {
                 method: 'POST',
                 body: formData
             });
@@ -328,6 +354,126 @@ const EWasteTable = () => {
 
     const isCompleted = yearData?.isCompleted;
 
+    // Sticky column styles
+    const actionStyle = { position: 'sticky', left: 0, zIndex: 3, backgroundColor: '#1a1a2e', color: '#fff', minWidth: '60px' };
+    const itemStyle = (isCompleted) => ({ position: 'sticky', left: isCompleted ? 0 : '60px', zIndex: 3, backgroundColor: '#1a1a2e', color: '#fff', minWidth: '120px' });
+    const serialStyle = (isCompleted) => ({ position: 'sticky', left: isCompleted ? '120px' : '180px', zIndex: 3, backgroundColor: '#1a1a2e', color: '#fff', minWidth: '100px', borderRight: '2px solid #e0e0e0' });
+
+    const actionCell = { position: 'sticky', left: 0, zIndex: 1, backgroundColor: '#ffffff', textAlign: 'center' };
+    const itemCell = (isCompleted) => ({ position: 'sticky', left: isCompleted ? 0 : '60px', zIndex: 1, backgroundColor: '#ffffff', fontWeight: 600 });
+    const serialCell = (isCompleted) => ({ position: 'sticky', left: isCompleted ? '120px' : '180px', zIndex: 1, backgroundColor: '#ffffff', borderRight: '2px solid #e0e0e0', fontWeight: 600 });
+
+    // Report processing logic
+    const reportData = useMemo(() => {
+        if (activeTab !== 'report') return [];
+        const grouped = {};
+        let grandTotalCount = 0;
+        let grandTotalCost = 0;
+        let grandTotalBookValue = 0;
+
+        items.forEach(item => {
+            const cost = parseFloat(item.Cost) || 0;
+            let dateObj = null;
+
+            const dateVal = item.date_of_purchase;
+            if (dateVal) {
+                const str = String(dateVal).trim();
+                if (typeof dateVal === 'number' || /^\d+$/.test(str)) {
+                    const num = Number(str);
+                    if (num > 10000 && num < 100000) {
+                        dateObj = new Date((num - 25569) * 86400 * 1000);
+                    }
+                } else {
+                    const parsed = new Date(str);
+                    if (!isNaN(parsed.getTime())) dateObj = parsed;
+                }
+            }
+
+            let yop = '-';
+            let remainingPct = 0;
+            let bookValue = 0;
+
+            if (dateObj) {
+                yop = dateObj.getFullYear();
+                const diffMs = reportRefDate.getTime() - dateObj.getTime();
+                const diffYears = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+                const completedYears = Math.floor(Math.max(0, diffYears));
+                remainingPct = 100 * Math.pow(0.6, completedYears);
+                bookValue = cost * (remainingPct / 100);
+            }
+
+            const itemName = item.Item_Name || 'Unknown Item';
+            const remainingPctStr = remainingPct.toFixed(4) + '%';
+            const subGroupKey = `${yop}_${remainingPctStr}`;
+
+            if (!grouped[itemName]) grouped[itemName] = {};
+            if (!grouped[itemName][subGroupKey]) {
+                grouped[itemName][subGroupKey] = {
+                    count: 0,
+                    yop: yop,
+                    cost: 0,
+                    remainingPctStr: remainingPctStr,
+                    bookValue: 0
+                };
+            }
+
+            grouped[itemName][subGroupKey].count += 1;
+            grouped[itemName][subGroupKey].cost += cost;
+            grouped[itemName][subGroupKey].bookValue += bookValue;
+
+            grandTotalCount += 1;
+            grandTotalCost += cost;
+            grandTotalBookValue += bookValue;
+        });
+
+        const rows = [];
+
+        Object.keys(grouped).sort().forEach(itemName => {
+            let itemTotalCount = 0;
+            let itemTotalCost = 0;
+            let itemTotalBookValue = 0;
+            let index = 1; // Reset index per item name
+
+            Object.keys(grouped[itemName]).forEach((subGroupKey) => {
+                const sg = grouped[itemName][subGroupKey];
+                rows.push({
+                    isTotal: false,
+                    isGrandTotal: false,
+                    index: index++,
+                    itemName: itemName,
+                    count: sg.count,
+                    yop: sg.yop,
+                    cost: sg.cost,
+                    remainingPctStr: sg.remainingPctStr,
+                    bookValue: sg.bookValue
+                });
+                itemTotalCount += sg.count;
+                itemTotalCost += sg.cost;
+                itemTotalBookValue += sg.bookValue;
+            });
+
+            rows.push({
+                isTotal: true,
+                isGrandTotal: false,
+                itemName: `${itemName} Total`,
+                count: itemTotalCount,
+                cost: itemTotalCost,
+                bookValue: itemTotalBookValue
+            });
+        });
+
+        rows.push({
+            isTotal: true,
+            isGrandTotal: true,
+            itemName: 'Grand Total',
+            count: grandTotalCount,
+            cost: grandTotalCost,
+            bookValue: grandTotalBookValue
+        });
+
+        return rows;
+    }, [items, reportRefDate, activeTab]);
+
     return (
         <div className="page-container">
             {processing && <div className="processing-overlay"><div className="spinner"></div><p>Processing...</p></div>}
@@ -338,105 +484,183 @@ const EWasteTable = () => {
                 <p>{isCompleted ? `Completed on ${formatDate(yearData.completedAt)}` : 'Manage hardware items for disposal'}</p>
             </div>
 
-            {!isCompleted && (
-                <div className="toolbar">
-                    <div className="toolbar-actions">
-                        <button className="btn btn-primary" onClick={handleOpenSearch}>
-                            <FontAwesomeIcon icon={faPlus} /> Add Hardware
-                        </button>
-                        {suggestions.length > 0 && (
-                            <button className="btn btn-outline" onClick={() => setShowSuggestions(true)} style={{ backgroundColor: '#fff3cd', borderColor: '#ffc107' }}>
-                                <FontAwesomeIcon icon={faLightbulb} /> {suggestions.length} Suggestions (6+ years old)
-                            </button>
-                        )}
-                        <button className="btn btn-outline" onClick={() => uploadFileRef.current.click()}>
-                            <FontAwesomeIcon icon={faFileExcel} /> Bulk Upload
-                        </button>
-                        <button className="btn btn-outline" onClick={handleDownloadExcel}>
-                            <FontAwesomeIcon icon={faDownload} /> Download Excel
-                        </button>
-                        <input type="file" ref={uploadFileRef} style={{ display: 'none' }} accept=".xlsx, .xls" onChange={handleBulkUpload} />
-                    </div>
-                    {items.length > 0 && (
-                        <button className="btn btn-success" onClick={() => setShowCompleteModal(true)}>
-                            <FontAwesomeIcon icon={faCheckCircle} /> Mark as Completed
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {isCompleted && yearData.completionDoc && (
-                <div style={{ padding: '15px', backgroundColor: '#d4edda', borderLeft: '4px solid #28a745', marginBottom: '20px' }}>
-                    <strong>Completion Document:</strong> {yearData.completionDoc}
-                </div>
-            )}
-
-            <div className="table-responsive">
-                {loading ? <p>Loading...</p> : items.length === 0 ? (
-                    <div className="empty-state">
-                        <p>No items in this E-Waste year yet. Click "Add Hardware" to get started.</p>
-                    </div>
-                ) : (
-                    <table className="supplier-table">
-                        <thead>
-                            <tr>
-                                <th>Item Name</th>
-                                <th>EDP Serial</th>
-                                <th>Date of Purchase</th>
-                                <th>Bill Number</th>
-                                <th>Cost</th>
-                                <th>Make</th>
-                                <th>Capacity</th>
-                                <th>RAM</th>
-                                <th>OS</th>
-                                <th>Office</th>
-                                <th>Speed</th>
-                                <th>IP</th>
-                                <th>MAC</th>
-                                <th>Company Serial</th>
-                                <th>Additional Items</th>
-                                <th>Status</th>
-                                <th>AMC</th>
-                                <th>AMC Upto</th>
-                                <th>Remarks</th>
-                                {!isCompleted && <th>Action</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map(item => (
-                                <tr key={item.id}>
-                                    <td>{item.Item_Name}</td>
-                                    <td><strong>{item.EDP_Serial}</strong></td>
-                                    <td>{item.date_of_purchase}</td>
-                                    <td>{item.Bill_Number}</td>
-                                    <td>{item.Cost}</td>
-                                    <td>{item.Make}</td>
-                                    <td>{item.Capacity}</td>
-                                    <td>{item.RAM}</td>
-                                    <td>{item.OS}</td>
-                                    <td>{item.Office}</td>
-                                    <td>{item.Speed}</td>
-                                    <td>{item.IP}</td>
-                                    <td>{item.MAC}</td>
-                                    <td>{item.Company_Serial}</td>
-                                    <td>{item.Additional_Item}</td>
-                                    <td>{item.Status}</td>
-                                    <td>{item.AMC}</td>
-                                    <td>{formatDate(item.AMC_Upto)}</td>
-                                    <td>{item.Remarks}</td>
-                                    {!isCompleted && (
-                                        <td>
-                                            <button className="btn-icon delete" onClick={() => handleRemoveItem(item.id)} title="Remove">
-                                                <FontAwesomeIcon icon={faTrash} />
-                                            </button>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+            <div className="tabs" style={{ display: 'flex', borderBottom: '1px solid #ddd', marginBottom: '20px' }}>
+                <button 
+                    style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'list' ? '3px solid #00a884' : '3px solid transparent', color: activeTab === 'list' ? '#00a884' : '#666', fontWeight: activeTab === 'list' ? 'bold' : 'normal', cursor: 'pointer', fontSize: '16px' }}
+                    onClick={() => setActiveTab('list')}
+                >
+                    E-Waste {year}
+                </button>
+                <button 
+                    style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === 'report' ? '3px solid #00a884' : '3px solid transparent', color: activeTab === 'report' ? '#00a884' : '#666', fontWeight: activeTab === 'report' ? 'bold' : 'normal', cursor: 'pointer', fontSize: '16px' }}
+                    onClick={() => setActiveTab('report')}
+                >
+                    E-Waste Report {year}
+                </button>
             </div>
+
+            {activeTab === 'list' && (
+                <>
+                    {!isCompleted && (
+                        <div className="toolbar">
+                            <div className="toolbar-actions">
+                                <button className="btn btn-primary" onClick={handleOpenSearch}>
+                                    <FontAwesomeIcon icon={faPlus} /> Add Hardware
+                                </button>
+                                {suggestions.length > 0 && (
+                                    <button className="btn btn-outline" onClick={() => setShowSuggestions(true)} style={{ backgroundColor: '#fff3cd', borderColor: '#ffc107' }}>
+                                        <FontAwesomeIcon icon={faLightbulb} /> {suggestions.length} Suggestions (6+ years old)
+                                    </button>
+                                )}
+                                <button className="btn btn-outline" onClick={() => uploadFileRef.current.click()}>
+                                    <FontAwesomeIcon icon={faFileExcel} /> Bulk Upload
+                                </button>
+                                <button className="btn btn-outline" onClick={handleDownloadExcel}>
+                                    <FontAwesomeIcon icon={faDownload} /> Download Excel
+                                </button>
+                                <input type="file" ref={uploadFileRef} style={{ display: 'none' }} accept=".xlsx, .xls" onChange={handleBulkUpload} />
+                            </div>
+                            {items.length > 0 && (
+                                <button className="btn btn-success" onClick={() => setShowCompleteModal(true)}>
+                                    <FontAwesomeIcon icon={faCheckCircle} /> Mark as Completed
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {isCompleted && yearData?.completionDoc && (
+                        <div style={{ padding: '15px', backgroundColor: '#d4edda', borderLeft: '4px solid #28a745', marginBottom: '20px' }}>
+                            <strong>Completion Document:</strong> {yearData.completionDoc}
+                        </div>
+                    )}
+
+                    <div className="table-responsive">
+                        {loading ? <p>Loading...</p> : items.length === 0 ? (
+                            <div className="empty-state">
+                                <p>No items in this E-Waste year yet. Click "Add Hardware" to get started.</p>
+                            </div>
+                        ) : (
+                            <table className="supplier-table" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                                <thead>
+                                    <tr>
+                                        {!isCompleted && <th style={actionStyle}>Action</th>}
+                                        <th style={itemStyle(isCompleted)}>Item Name</th>
+                                        <th style={serialStyle(isCompleted)}>EDP Serial</th>
+                                        <th>Date of Purchase</th>
+                                        <th>Bill Number</th>
+                                        <th>Cost</th>
+                                        <th>Make</th>
+                                        <th>Capacity</th>
+                                        <th>RAM</th>
+                                        <th>OS</th>
+                                        <th>Office</th>
+                                        <th>Speed</th>
+                                        <th>IP</th>
+                                        <th>MAC</th>
+                                        <th>Company Serial</th>
+                                        <th>Additional Items</th>
+                                        <th>Status</th>
+                                        <th>AMC</th>
+                                        <th>AMC Upto</th>
+                                        <th>Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {items.map(item => (
+                                        <tr key={item.id}>
+                                            {!isCompleted && (
+                                                <td style={actionCell}>
+                                                    <button className="btn-icon delete" onClick={() => handleRemoveItem(item.id)} title="Remove">
+                                                        <FontAwesomeIcon icon={faTrash} />
+                                                    </button>
+                                                </td>
+                                            )}
+                                            <td style={itemCell(isCompleted)}>{item.Item_Name}</td>
+                                            <td style={serialCell(isCompleted)}>{item.EDP_Serial}</td>
+                                            <td>{formatDateHelper(item.date_of_purchase)}</td>
+                                            <td>{item.Bill_Number}</td>
+                                            <td>{item.Cost}</td>
+                                            <td>{item.Make}</td>
+                                            <td>{item.Capacity}</td>
+                                            <td>{item.RAM}</td>
+                                            <td>{item.OS}</td>
+                                            <td>{item.Office}</td>
+                                            <td>{item.Speed}</td>
+                                            <td>{item.IP}</td>
+                                            <td>{item.MAC}</td>
+                                            <td>{item.Company_Serial}</td>
+                                            <td>{item.Additional_Item}</td>
+                                            <td>{item.Status}</td>
+                                            <td>{item.AMC}</td>
+                                            <td>{formatDate(item.AMC_Upto)}</td>
+                                            <td>{item.Remarks}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {activeTab === 'report' && (
+                <div className="report-container">
+                    <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                        <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <FontAwesomeIcon icon={faFileExcel} /> E-Waste Report {year}
+                        </h3>
+                        <div className="toolbar-actions">
+                            <button className="btn btn-outline" onClick={() => setReportRefDate(new Date())}>
+                                <FontAwesomeIcon icon={faSync} /> Refresh
+                            </button>
+                            <button className="btn btn-primary" onClick={handleDownloadReportExcel}>
+                                <FontAwesomeIcon icon={faDownload} /> Download Excel
+                            </button>
+                        </div>
+                    </div>
+                    <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '15px' }}>
+                        Depreciation calculated at <strong>40% reducing balance</strong> per Income Tax Act. Current reference date: <strong>{formatDateHelper(reportRefDate.toISOString())}</strong>
+                    </p>
+                    
+                    <div className="table-responsive">
+                        {loading ? <p>Loading...</p> : items.length === 0 ? (
+                            <div className="empty-state">
+                                <p>No items available to generate report.</p>
+                            </div>
+                        ) : (
+                            <table className="supplier-table">
+                                <thead>
+                                    <tr>
+                                        <th>ITEM NO.</th>
+                                        <th>ITEM NAME</th>
+                                        <th>QUANTITY</th>
+                                        <th>YEAR OF PURCHASE</th>
+                                        <th>COST (₹)</th>
+                                        <th>REMAINING VALUE (%)</th>
+                                        <th>BOOK VALUE (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reportData.map((row, idx) => (
+                                        <tr key={idx} style={{ 
+                                            backgroundColor: row.isGrandTotal ? '#e2e3e5' : (row.isTotal ? '#f8f9fa' : '#ffffff'),
+                                            fontWeight: row.isTotal ? 'bold' : 'normal'
+                                        }}>
+                                            <td>{row.index}</td>
+                                            <td>{row.itemName}</td>
+                                            <td>{row.count}</td>
+                                            <td>{row.yop}</td>
+                                            <td>{row.isTotal ? '' : '₹ '}{row.cost?.toFixed(2)}</td>
+                                            <td>{row.remainingPctStr}</td>
+                                            <td>{row.isTotal ? '' : '₹ '}{row.bookValue?.toFixed(4)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Search Hardware Modal */}
             {showSearchModal && (

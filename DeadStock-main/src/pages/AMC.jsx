@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { formatDate } from '../utils/formatDate';
+import { getJson, postJson, putJson, apiFetch } from '../utils/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTimes, faDownload } from '@fortawesome/free-solid-svg-icons';
 
@@ -27,7 +28,7 @@ const AMC = () => {
     const fetchHardware = async () => {
         setLoading(true);
         try {
-            const res = await fetch('http://localhost:3001/api/hardware');
+            const res = await getJson('/hardware');
             const data = await res.json();
             setHardwareList(data);
         } catch (error) {
@@ -154,11 +155,7 @@ const AMC = () => {
         }
         setProcessing(true);
         try {
-            const res = await fetch('http://localhost:3001/api/hardware/bulk-update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedIds, updates: bulkAMCData })
-            });
+            const res = await postJson('/hardware/bulk-update', { ids: selectedIds, updates: bulkAMCData });
             if (res.ok) {
                 showAlert('success', 'Items updated successfully');
                 setSelectedIds([]);
@@ -191,11 +188,7 @@ const AMC = () => {
             }));
 
             if (window.electronAPI && window.electronAPI.showSaveDialog) {
-                const res = await fetch('http://localhost:3001/api/amc/download-buffer', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: excelData })
-                });
+                const res = await postJson('/amc/download-buffer', { data: excelData });
                 const { buffer } = await res.json();
                 
                 const result = await window.electronAPI.showSaveDialog({
@@ -212,7 +205,7 @@ const AMC = () => {
                     showAlert('success', 'File saved successfully!');
                 }
             } else {
-                const response = await fetch('http://localhost:3001/api/amc/download', {
+                const response = await apiFetch('/amc/download', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ data: excelData })
@@ -249,11 +242,7 @@ const AMC = () => {
         }
         setProcessing(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/hardware/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editFormData)
-            });
+            const res = await putJson(`/hardware/${id}`, editFormData);
             if (res.ok) {
                 showAlert('success', 'Updated Successfully');
                 setEditRowId(null);
@@ -280,29 +269,56 @@ const AMC = () => {
                 <p>Manage Annual Maintenance Contracts (Current FY: {fyStart.getFullYear()}-{fyEnd.getFullYear()})</p>
             </div>
 
-            <div className="tabs">
+            <div className="tabs" style={{ display: 'flex', borderBottom: '1px solid #ddd', marginBottom: '20px' }}>
                 <button
                     className={`tab ${activeTab === 'Under AMC' ? 'active' : ''}`}
                     onClick={() => { setActiveTab('Under AMC'); setSelectedIds([]); }}
+                    style={{
+                        padding: '10px 20px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: activeTab === 'Under AMC' ? '3px solid #00a294' : '3px solid transparent',
+                        color: activeTab === 'Under AMC' ? '#00a294' : '#666',
+                        fontWeight: activeTab === 'Under AMC' ? 'bold' : 'normal',
+                        cursor: 'pointer'
+                    }}
                 >
                     Under AMC
                 </button>
                 <button
                     className={`tab ${activeTab === 'Not in AMC' ? 'active' : ''}`}
                     onClick={() => { setActiveTab('Not in AMC'); setSelectedIds([]); }}
+                    style={{
+                        padding: '10px 20px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: activeTab === 'Not in AMC' ? '3px solid #00a294' : '3px solid transparent',
+                        color: activeTab === 'Not in AMC' ? '#00a294' : '#666',
+                        fontWeight: activeTab === 'Not in AMC' ? 'bold' : 'normal',
+                        cursor: 'pointer'
+                    }}
                 >
                     Not in AMC
                 </button>
                 <button
                     className={`tab ${activeTab === 'All Items' ? 'active' : ''}`}
                     onClick={() => { setActiveTab('All Items'); setSelectedIds([]); }}
+                    style={{
+                        padding: '10px 20px',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: activeTab === 'All Items' ? '3px solid #00a294' : '3px solid transparent',
+                        color: activeTab === 'All Items' ? '#00a294' : '#666',
+                        fontWeight: activeTab === 'All Items' ? 'bold' : 'normal',
+                        cursor: 'pointer'
+                    }}
                 >
                     All Items
                 </button>
             </div>
 
             <div className="tab-content">
-                <div className="toolbar">
+                <div className="toolbar" style={{ marginBottom: '15px' }}>
                     <div className="toolbar-actions">
                         <button className="btn btn-outline" onClick={handleDownloadExcel}>
                             <FontAwesomeIcon icon={faDownload} /> Download Excel
