@@ -36,7 +36,8 @@ const defaultSchema = {
   ewasteYears: [],
   ewasteItems: [],
   permanent_allocation: [],
-  userProfile: null
+  userProfile: null,
+  backupHistory: []
 };
 
 // Database instance
@@ -97,6 +98,24 @@ export async function initDatabase(filePath = null) {
       await originalWrite();
     } finally {
       if (release) await release();
+    }
+  };
+
+  // --- Atomic read-modify-write for LAN concurrency safety ---
+  // Holds the lock across the ENTIRE cycle so no other instance
+  // can read stale data or overwrite our changes mid-operation.
+  db.update = async (mutator) => {
+    let release;
+    try {
+      if (fs.existsSync(currentDbPath)) {
+        release = await lockfile.lock(currentDbPath, lockOptions);
+      }
+      await originalRead();                // 1. Read latest from disk
+      const result = await mutator(db.data); // 2. Caller mutates in-memory data
+      await originalWrite();               // 3. Write back to disk
+      return result;                       // 4. Return caller's result (if any)
+    } finally {
+      if (release) await release();        // 5. Release lock AFTER write
     }
   };
 

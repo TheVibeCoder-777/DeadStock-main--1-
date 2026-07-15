@@ -1,7 +1,7 @@
 {
   "name": "deadstock",
   "productName": "DeadStock",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "description": "Inventory Management System - Hardware and Software Tracking",
   "author": "DeadStock Team",
   "main": "electron/main.cjs",
@@ -41,6 +41,8 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.1",
     "vite": "^7.2.4",
     "wait-on": "^7.2.0"
   },
@@ -48,6 +50,7 @@
     "appId": "com.deadstock.inventory",
     "productName": "DeadStock",
     "copyright": "Copyright © 2026",
+    "publish": null,
     "directories": {
       "output": "release",
       "buildResources": "build"
