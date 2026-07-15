@@ -1,0 +1,15 @@
+# Ignore agent configurations and tools
+.agents/
+.agent/
+
+# Ignore Electron wrapper code
+electron/
+
+# Ignore build outputs
+dist/
+release/
+release_fresh/
+
+# Ignore static icons and assets
+public/icons/
+src/assets/
