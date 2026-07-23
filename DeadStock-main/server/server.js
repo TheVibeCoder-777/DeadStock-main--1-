@@ -155,9 +155,9 @@ app.get('/api/suppliers', async (req, res) => {
 app.post('/api/suppliers', async (req, res) => {
     try {
         const newSupplier = req.body;
-        await db.read();
-        db.data.suppliers.push(newSupplier);
-        await db.write();
+        await db.update((data) => {
+            data.suppliers.push(newSupplier);
+        });
         res.status(201).json({ message: 'New Supplier Added', supplier: newSupplier });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -170,13 +170,16 @@ app.put('/api/suppliers/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const updatedData = req.body;
-        await db.read();
-
-        const index = db.data.suppliers.findIndex(s => s.Supplier_ID === id);
-        if (index !== -1) {
-            db.data.suppliers[index] = { ...db.data.suppliers[index], ...updatedData };
-            await db.write();
-            res.json({ message: 'Supplier Details Updated', supplier: db.data.suppliers[index] });
+        const result = await db.update((data) => {
+            const index = data.suppliers.findIndex(s => s.Supplier_ID === id);
+            if (index !== -1) {
+                data.suppliers[index] = { ...data.suppliers[index], ...updatedData };
+                return { found: true, supplier: data.suppliers[index] };
+            }
+            return { found: false };
+        });
+        if (result.found) {
+            res.json({ message: 'Supplier Details Updated', supplier: result.supplier });
         } else {
             res.status(404).json({ error: 'Supplier not found' });
         }
@@ -190,13 +193,12 @@ app.put('/api/suppliers/:id', async (req, res) => {
 app.delete('/api/suppliers/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await db.read();
-
-        const initialLength = db.data.suppliers.length;
-        db.data.suppliers = db.data.suppliers.filter(s => s.Supplier_ID !== id && s.id !== id);
-
-        if (db.data.suppliers.length < initialLength) {
-            await db.write();
+        const result = await db.update((data) => {
+            const initialLength = data.suppliers.length;
+            data.suppliers = data.suppliers.filter(s => s.Supplier_ID !== id && s.id !== id);
+            return { deleted: data.suppliers.length < initialLength };
+        });
+        if (result.deleted) {
             res.json({ message: 'Supplier Deleted' });
         } else {
             res.status(404).json({ error: 'Supplier not found' });
@@ -238,63 +240,61 @@ app.post('/api/suppliers/upload', async (req, res) => {
 
         console.log('Parsed Excel Data (First Row):', data[0]); // DEBUG LOG
 
-        await db.read();
-        db.data ||= { suppliers: [] }; // Safety init
-        if (!db.data.suppliers) db.data.suppliers = [];
         let addedCount = 0;
         let updatedCount = 0;
 
-        for (const rawRow of data) {
-            const row = {
-                Supplier_ID: rawRow['Supplier_ID'] || rawRow['Supplier ID'],
-                Supplier_Name: rawRow['Supplier_Name'] || rawRow['Supplier Name'] || rawRow['Name'],
-                Category: rawRow['Category'],
-                Address_1: rawRow['Address_1'] || rawRow['Address 1'] || rawRow['Address'],
-                Address_2: rawRow['Address_2'] || rawRow['Address 2'],
-                City: rawRow['City'],
-                State: rawRow['State'],
-                PIN_Code: rawRow['PIN_Code'] || rawRow['PIN Code'] || rawRow['PIN'],
-                POC_Person: rawRow['POC_Person'] || rawRow['POC Person'] || rawRow['POC'],
-                Phone_Number: rawRow['Phone_Number'] || rawRow['Phone Number'] || rawRow['Phone'],
-                Email: rawRow['Email']
-            };
+        await db.update((dbData) => {
+            dbData.suppliers ||= [];
+            for (const rawRow of data) {
+                const row = {
+                    Supplier_ID: rawRow['Supplier_ID'] || rawRow['Supplier ID'],
+                    Supplier_Name: rawRow['Supplier_Name'] || rawRow['Supplier Name'] || rawRow['Name'],
+                    Category: rawRow['Category'],
+                    Address_1: rawRow['Address_1'] || rawRow['Address 1'] || rawRow['Address'],
+                    Address_2: rawRow['Address_2'] || rawRow['Address 2'],
+                    City: rawRow['City'],
+                    State: rawRow['State'],
+                    PIN_Code: rawRow['PIN_Code'] || rawRow['PIN Code'] || rawRow['PIN'],
+                    POC_Person: rawRow['POC_Person'] || rawRow['POC Person'] || rawRow['POC'],
+                    Phone_Number: rawRow['Phone_Number'] || rawRow['Phone Number'] || rawRow['Phone'],
+                    Email: rawRow['Email']
+                };
 
-            if (!row.Supplier_Name) {
-                console.log('Skipping row due to missing Supplier Name:', rawRow);
-                continue;
+                if (!row.Supplier_Name) {
+                    console.log('Skipping row due to missing Supplier Name:', rawRow);
+                    continue;
+                }
+
+                if (!row.Supplier_ID) {
+                    const num = Math.floor(Math.random() * 9000) + 1000;
+                    row.Supplier_ID = `S${num}`;
+                }
+
+                const supplierData = {
+                    Supplier_ID: row.Supplier_ID,
+                    Category: row.Category || 'All (H/S/C)',
+                    Supplier_Name: row.Supplier_Name,
+                    Address_1: row.Address_1 || '',
+                    Address_2: row.Address_2 || '',
+                    City: row.City || '',
+                    State: row.State || '',
+                    PIN_Code: row.PIN_Code || '',
+                    POC_Person: row.POC_Person || '',
+                    Phone_Number: row.Phone_Number || '',
+                    Email: row.Email || ''
+                };
+
+                const existingIndex = dbData.suppliers.findIndex(s => s.Supplier_ID === row.Supplier_ID);
+                if (existingIndex !== -1) {
+                    Object.assign(dbData.suppliers[existingIndex], supplierData);
+                    updatedCount++;
+                } else {
+                    dbData.suppliers.push(supplierData);
+                    addedCount++;
+                }
             }
+        });
 
-            if (!row.Supplier_ID) {
-                const num = Math.floor(Math.random() * 9000) + 1000;
-                row.Supplier_ID = `S${num}`;
-            }
-
-            const supplierData = {
-                Supplier_ID: row.Supplier_ID,
-                Category: row.Category || 'All (H/S/C)',
-                Supplier_Name: row.Supplier_Name,
-                Address_1: row.Address_1 || '',
-                Address_2: row.Address_2 || '',
-                City: row.City || '',
-                State: row.State || '',
-                PIN_Code: row.PIN_Code || '',
-                POC_Person: row.POC_Person || '',
-                Phone_Number: row.Phone_Number || '',
-                Email: row.Email || ''
-            };
-
-            // Upsert: update if exists by Supplier_ID, insert if new
-            const existingIndex = db.data.suppliers.findIndex(s => s.Supplier_ID === row.Supplier_ID);
-            if (existingIndex !== -1) {
-                Object.assign(db.data.suppliers[existingIndex], supplierData);
-                updatedCount++;
-            } else {
-                db.data.suppliers.push(supplierData);
-                addedCount++;
-            }
-        }
-
-        await db.write();
         res.json({ message: `Bulk upload processed. Added ${addedCount} new, Updated ${updatedCount} existing suppliers.` });
 
     } catch (error) {
@@ -392,37 +392,39 @@ app.post('/api/invoices', async (req, res) => {
             }
         }
 
-        await db.read();
-        db.data.invoices = db.data.invoices || [];
+        const result = await db.update((data) => {
+            data.invoices = data.invoices || [];
 
-        // Generate Serial Number (Simple Auto Increment for now)
-        let maxInv = 0;
-        db.data.invoices.forEach(inv => {
-            if (inv.Serial_Number && inv.Serial_Number.startsWith('INV')) {
-                const num = parseInt(inv.Serial_Number.substring(3));
-                if (num > maxInv) maxInv = num;
+            // Generate Serial Number (Simple Auto Increment for now)
+            let maxInv = 0;
+            data.invoices.forEach(inv => {
+                if (inv.Serial_Number && inv.Serial_Number.startsWith('INV')) {
+                    const num = parseInt(inv.Serial_Number.substring(3));
+                    if (num > maxInv) maxInv = num;
+                }
+            });
+            const nextSerial = `INV${String(maxInv + 1).padStart(3, '0')}`;
+
+            const newInvoice = {
+                id: Date.now().toString(), // Internal ID
+                Serial_Number: nextSerial,
+                ...invoiceData,
+                Bill_PDF: savedFilename,
+                Items: invoiceData.Items || [] // Ensure Items array exists
+            };
+
+            // Check Bill Number Duplicate
+            const duplicate = data.invoices.find(inv => inv.Bill_Number === newInvoice.Bill_Number);
+            if (duplicate) {
+                return { error: 'Bill Number already exists', status: 400 };
             }
+
+            data.invoices.push(newInvoice);
+            return { invoice: newInvoice };
         });
-        const nextSerial = `INV${String(maxInv + 1).padStart(3, '0')}`;
 
-        const newInvoice = {
-            id: Date.now().toString(), // Internal ID
-            Serial_Number: nextSerial,
-            ...invoiceData,
-            Bill_PDF: savedFilename,
-            Items: invoiceData.Items || [] // Ensure Items array exists
-        };
-
-        // Check Bill Number Duplicate
-        const duplicate = db.data.invoices.find(inv => inv.Bill_Number === newInvoice.Bill_Number);
-        if (duplicate) {
-            return res.status(400).json({ error: 'Bill Number already exists' });
-        }
-
-        db.data.invoices.push(newInvoice);
-        await db.write();
-
-        res.status(201).json({ message: 'Invoice Added', invoice: newInvoice });
+        if (result.error) return res.status(result.status).json({ error: result.error });
+        res.status(201).json({ message: 'Invoice Added', invoice: result.invoice });
 
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -460,24 +462,24 @@ app.put('/api/invoices/:id', async (req, res) => {
             }
         }
 
-        await db.read();
-        const index = db.data.invoices.findIndex(inv => inv.id === id);
+        const result = await db.update((data) => {
+            const index = data.invoices.findIndex(inv => inv.id === id);
+            if (index !== -1) {
+                const oldInvoice = data.invoices[index];
+                const updatedInvoice = {
+                    ...oldInvoice,
+                    ...invoiceData,
+                    Bill_PDF: savedFilename !== undefined ? savedFilename : (invoiceData.Bill_PDF !== undefined ? invoiceData.Bill_PDF : oldInvoice.Bill_PDF),
+                    Items: invoiceData.Items || oldInvoice.Items
+                };
+                data.invoices[index] = updatedInvoice;
+                return { found: true, invoice: updatedInvoice };
+            }
+            return { found: false };
+        });
 
-        if (index !== -1) {
-            const oldInvoice = db.data.invoices[index];
-            const updatedInvoice = {
-                ...oldInvoice,
-                ...invoiceData,
-                // If savedFilename is set (new file), use it.
-                // If not set, check if invoiceData explicitly clears it (null), otherwise keep old.
-                Bill_PDF: savedFilename !== undefined ? savedFilename : (invoiceData.Bill_PDF !== undefined ? invoiceData.Bill_PDF : oldInvoice.Bill_PDF),
-                // Update Items if provided, otherwise keep old ones.
-                Items: invoiceData.Items || oldInvoice.Items
-            };
-
-            db.data.invoices[index] = updatedInvoice;
-            await db.write();
-            res.json({ message: 'Invoice Updated', invoice: updatedInvoice });
+        if (result.found) {
+            res.json({ message: 'Invoice Updated', invoice: result.invoice });
         } else {
             res.status(404).json({ error: 'Invoice not found' });
         }
@@ -491,12 +493,13 @@ app.put('/api/invoices/:id', async (req, res) => {
 app.delete('/api/invoices/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await db.read();
-        const initialLength = db.data.invoices.length;
-        db.data.invoices = db.data.invoices.filter(inv => inv.id !== id);
+        const result = await db.update((data) => {
+            const initialLength = data.invoices.length;
+            data.invoices = data.invoices.filter(inv => inv.id !== id);
+            return { deleted: data.invoices.length < initialLength };
+        });
 
-        if (db.data.invoices.length < initialLength) {
-            await db.write();
+        if (result.deleted) {
             res.json({ message: 'Invoice Deleted' });
         } else {
             res.status(404).json({ error: 'Invoice not found' });
@@ -590,18 +593,6 @@ app.post('/api/invoices/upload', async (req, res) => {
 
         console.log('Invoice Excel First Row:', data[0]);
 
-        await db.read();
-        db.data.invoices = db.data.invoices || [];
-
-        // Get max serial number for new invoices
-        let maxSerial = 0;
-        db.data.invoices.forEach(inv => {
-            if (inv.Serial_Number) {
-                const num = parseInt(inv.Serial_Number, 10);
-                if (num > maxSerial) maxSerial = num;
-            }
-        });
-
         let addedCount = 0;
         let updatedCount = 0;
 
@@ -638,30 +629,41 @@ app.post('/api/invoices/upload', async (req, res) => {
             }
         }
 
-        // Upsert invoices by Bill_Number
-        for (const [billNumber, invoiceData] of invoiceMap) {
-            const existingIndex = db.data.invoices.findIndex(inv => inv.Bill_Number === billNumber);
-            if (existingIndex !== -1) {
-                // Update existing invoice, preserve id and Serial_Number
-                const existing = db.data.invoices[existingIndex];
-                Object.assign(db.data.invoices[existingIndex], {
-                    ...invoiceData,
-                    id: existing.id,
-                    Serial_Number: existing.Serial_Number
-                });
-                updatedCount++;
-            } else {
-                maxSerial++;
-                db.data.invoices.push({
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                    Serial_Number: maxSerial,
-                    ...invoiceData
-                });
-                addedCount++;
-            }
-        }
+        await db.update((dbData) => {
+            dbData.invoices = dbData.invoices || [];
 
-        await db.write();
+            // Get max serial number for new invoices
+            let maxSerial = 0;
+            dbData.invoices.forEach(inv => {
+                if (inv.Serial_Number) {
+                    const num = parseInt(inv.Serial_Number, 10);
+                    if (num > maxSerial) maxSerial = num;
+                }
+            });
+
+            // Upsert invoices by Bill_Number
+            for (const [billNumber, invoiceData] of invoiceMap) {
+                const existingIndex = dbData.invoices.findIndex(inv => inv.Bill_Number === billNumber);
+                if (existingIndex !== -1) {
+                    // Update existing invoice, preserve id and Serial_Number
+                    const existing = dbData.invoices[existingIndex];
+                    Object.assign(dbData.invoices[existingIndex], {
+                        ...invoiceData,
+                        id: existing.id,
+                        Serial_Number: existing.Serial_Number
+                    });
+                    updatedCount++;
+                } else {
+                    maxSerial++;
+                    dbData.invoices.push({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                        Serial_Number: maxSerial,
+                        ...invoiceData
+                    });
+                    addedCount++;
+                }
+            }
+        });
         res.json({ message: `Bulk upload complete. Added ${addedCount} new, Updated ${updatedCount} existing invoices.` });
 
     } catch (error) {
@@ -675,22 +677,20 @@ app.post('/api/invoices/upload', async (req, res) => {
 // 1. Hardware Configuration (Categories & Prefixes)
 app.get('/api/hardware/config', async (req, res) => {
     try {
-        await db.read();
-        db.data ||= {};
-        // Default Config if empty
-        if (!db.data.hardwareConfig || db.data.hardwareConfig.length === 0) {
-            db.data.hardwareConfig = [
-                { category: 'LAPTOP', prefix: 'LAP' },
-                { category: 'MONITOR', prefix: 'M' },
-                { category: 'CPU', prefix: 'C' },
-                { category: 'UPS', prefix: 'UPS' },
-                { category: 'HDD', prefix: 'HDD' },
-                { category: 'SERVER', prefix: 'SER' },
-                { category: 'AIO DESKTOP', prefix: 'AIOD' },
-                { category: 'LASER PRINTER', prefix: 'LP' }
-            ];
-            await db.write();
-        }
+        await db.update((data) => {
+            if (!data.hardwareConfig || data.hardwareConfig.length === 0) {
+                data.hardwareConfig = [
+                    { category: 'LAPTOP', prefix: 'L' },
+                    { category: 'MONITOR', prefix: 'M' },
+                    { category: 'CPU', prefix: 'C' },
+                    { category: 'UPS', prefix: 'UPS' },
+                    { category: 'HDD', prefix: 'HDD' },
+                    { category: 'SERVER', prefix: 'SER' },
+                    { category: 'AIO DESKTOP', prefix: 'AIOD' },
+                    { category: 'LASER PRINTER', prefix: 'LP' }
+                ];
+            }
+        });
         res.json(db.data.hardwareConfig);
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -701,15 +701,15 @@ app.get('/api/hardware/config', async (req, res) => {
 app.post('/api/hardware/config', async (req, res) => {
     try {
         const { category, prefix } = req.body;
-        await db.read();
-        db.data.hardwareConfig = db.data.hardwareConfig || [];
-
-        if (db.data.hardwareConfig.find(c => c.category === category)) {
-            return res.status(400).json({ error: 'Category already exists' });
-        }
-
-        db.data.hardwareConfig.push({ category, prefix });
-        await db.write();
+        const result = await db.update((data) => {
+            data.hardwareConfig = data.hardwareConfig || [];
+            if (data.hardwareConfig.find(c => c.category === category)) {
+                return { error: 'Category already exists', status: 400 };
+            }
+            data.hardwareConfig.push({ category, prefix });
+            return { success: true };
+        });
+        if (result.error) return res.status(result.status).json({ error: result.error });
         res.json({ message: 'Category Added' });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -748,11 +748,11 @@ const defaultCapacityConfig = [
 // GET all capacity configs
 app.get('/api/capacity/config', async (req, res) => {
     try {
-        await db.read();
-        if (!db.data.capacityConfig || db.data.capacityConfig.length === 0) {
-            db.data.capacityConfig = [...defaultCapacityConfig];
-            await db.write();
-        }
+        await db.update((data) => {
+            if (!data.capacityConfig || data.capacityConfig.length === 0) {
+                data.capacityConfig = [...defaultCapacityConfig];
+            }
+        });
         res.json(db.data.capacityConfig);
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -767,17 +767,16 @@ app.post('/api/capacity/config', async (req, res) => {
         if (!Item_Name || !Capacity) {
             return res.status(400).json({ error: 'Item Name and Capacity are required' });
         }
-        await db.read();
-        db.data.capacityConfig = db.data.capacityConfig || [];
-
-        // Check duplicate
-        if (db.data.capacityConfig.find(c => c.Item_Name === Item_Name && c.Capacity === Capacity)) {
-            return res.status(400).json({ error: 'This capacity already exists for this item' });
-        }
-
-        db.data.capacityConfig.push({ Item_Name: Item_Name.trim(), Capacity: Capacity.trim() });
-        db.data.capacityConfig.sort((a, b) => a.Item_Name.localeCompare(b.Item_Name) || a.Capacity.localeCompare(b.Capacity));
-        await db.write();
+        const result = await db.update((data) => {
+            data.capacityConfig = data.capacityConfig || [];
+            if (data.capacityConfig.find(c => c.Item_Name === Item_Name && c.Capacity === Capacity)) {
+                return { error: 'This capacity already exists for this item', status: 400 };
+            }
+            data.capacityConfig.push({ Item_Name: Item_Name.trim(), Capacity: Capacity.trim() });
+            data.capacityConfig.sort((a, b) => a.Item_Name.localeCompare(b.Item_Name) || a.Capacity.localeCompare(b.Capacity));
+            return { success: true };
+        });
+        if (result.error) return res.status(result.status).json({ error: result.error });
         res.json({ message: 'Capacity added' });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -792,32 +791,31 @@ app.put('/api/capacity/config', async (req, res) => {
         if (!Item_Name || !oldCapacity || !newCapacity) {
             return res.status(400).json({ error: 'All fields are required' });
         }
-        await db.read();
-        db.data.capacityConfig = db.data.capacityConfig || [];
-
-        const idx = db.data.capacityConfig.findIndex(c => c.Item_Name === Item_Name && c.Capacity === oldCapacity);
-        if (idx === -1) {
-            return res.status(404).json({ error: 'Capacity entry not found' });
-        }
-        if (db.data.capacityConfig.find(c => c.Item_Name === Item_Name && c.Capacity === newCapacity)) {
-            return res.status(400).json({ error: 'New capacity already exists for this item' });
-        }
-
-        db.data.capacityConfig[idx].Capacity = newCapacity.trim();
-
-        // Propagate change to hardware items
-        let updatedCount = 0;
-        const hardware = db.data.hardware || [];
-        for (const hw of hardware) {
-            if (hw.Item_Name === Item_Name && hw.Capacity === oldCapacity) {
-                hw.Capacity = newCapacity.trim();
-                updatedCount++;
+        const result = await db.update((data) => {
+            data.capacityConfig = data.capacityConfig || [];
+            const idx = data.capacityConfig.findIndex(c => c.Item_Name === Item_Name && c.Capacity === oldCapacity);
+            if (idx === -1) {
+                return { error: 'Capacity entry not found', status: 404 };
             }
-        }
+            if (data.capacityConfig.find(c => c.Item_Name === Item_Name && c.Capacity === newCapacity)) {
+                return { error: 'New capacity already exists for this item', status: 400 };
+            }
+            data.capacityConfig[idx].Capacity = newCapacity.trim();
 
-        db.data.capacityConfig.sort((a, b) => a.Item_Name.localeCompare(b.Item_Name) || a.Capacity.localeCompare(b.Capacity));
-        await db.write();
-        res.json({ message: `Capacity renamed. ${updatedCount} hardware item(s) updated.`, updatedCount });
+            // Propagate change to hardware items
+            let updatedCount = 0;
+            const hardware = data.hardware || [];
+            for (const hw of hardware) {
+                if (hw.Item_Name === Item_Name && hw.Capacity === oldCapacity) {
+                    hw.Capacity = newCapacity.trim();
+                    updatedCount++;
+                }
+            }
+            data.capacityConfig.sort((a, b) => a.Item_Name.localeCompare(b.Item_Name) || a.Capacity.localeCompare(b.Capacity));
+            return { success: true, updatedCount };
+        });
+        if (result.error) return res.status(result.status).json({ error: result.error });
+        res.json({ message: `Capacity renamed. ${result.updatedCount} hardware item(s) updated.`, updatedCount: result.updatedCount });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to update capacity' });
@@ -831,14 +829,13 @@ app.delete('/api/capacity/config', async (req, res) => {
         if (!Item_Name || !Capacity) {
             return res.status(400).json({ error: 'Item Name and Capacity are required' });
         }
-        await db.read();
-        db.data.capacityConfig = db.data.capacityConfig || [];
-
-        const initialLen = db.data.capacityConfig.length;
-        db.data.capacityConfig = db.data.capacityConfig.filter(c => !(c.Item_Name === Item_Name && c.Capacity === Capacity));
-
-        if (db.data.capacityConfig.length < initialLen) {
-            await db.write();
+        const result = await db.update((data) => {
+            data.capacityConfig = data.capacityConfig || [];
+            const initialLen = data.capacityConfig.length;
+            data.capacityConfig = data.capacityConfig.filter(c => !(c.Item_Name === Item_Name && c.Capacity === Capacity));
+            return { deleted: data.capacityConfig.length < initialLen };
+        });
+        if (result.deleted) {
             res.json({ message: 'Capacity deleted' });
         } else {
             res.status(404).json({ error: 'Capacity entry not found' });
@@ -868,17 +865,17 @@ app.post('/api/make/config', async (req, res) => {
         if (!name || !name.trim()) {
             return res.status(400).json({ error: 'Company name is required' });
         }
-        await db.read();
-        db.data.makeConfig = db.data.makeConfig || ['HP', 'Dell', 'Lenovo', 'Acer', 'ASUS', 'Samsung', 'LG'];
-
-        if (db.data.makeConfig.includes(name.trim())) {
-            return res.status(400).json({ error: 'Company already exists' });
-        }
-
-        db.data.makeConfig.push(name.trim());
-        db.data.makeConfig.sort(); // Keep alphabetically sorted
-        await db.write();
-        res.json({ message: 'Company added', makes: db.data.makeConfig });
+        const result = await db.update((data) => {
+            data.makeConfig = data.makeConfig || ['HP', 'Dell', 'Lenovo', 'Acer', 'ASUS', 'Samsung', 'LG'];
+            if (data.makeConfig.includes(name.trim())) {
+                return { error: 'Company already exists', status: 400 };
+            }
+            data.makeConfig.push(name.trim());
+            data.makeConfig.sort();
+            return { success: true, makes: data.makeConfig };
+        });
+        if (result.error) return res.status(result.status).json({ error: result.error });
+        res.json({ message: 'Company added', makes: result.makes });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to add company' });
@@ -888,17 +885,17 @@ app.post('/api/make/config', async (req, res) => {
 app.delete('/api/make/config/:name', async (req, res) => {
     try {
         const { name } = req.params;
-        await db.read();
-        db.data.makeConfig = db.data.makeConfig || [];
-
-        const index = db.data.makeConfig.indexOf(name);
-        if (index === -1) {
-            return res.status(404).json({ error: 'Company not found' });
-        }
-
-        db.data.makeConfig.splice(index, 1);
-        await db.write();
-        res.json({ message: 'Company deleted', makes: db.data.makeConfig });
+        const result = await db.update((data) => {
+            data.makeConfig = data.makeConfig || [];
+            const index = data.makeConfig.indexOf(name);
+            if (index === -1) {
+                return { error: 'Company not found', status: 404 };
+            }
+            data.makeConfig.splice(index, 1);
+            return { success: true, makes: data.makeConfig };
+        });
+        if (result.error) return res.status(result.status).json({ error: result.error });
+        res.json({ message: 'Company deleted', makes: result.makes });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to delete company' });
@@ -921,10 +918,10 @@ app.put('/api/column-visibility/config', async (req, res) => {
         const { category, hiddenColumns } = req.body;
         if (!category) return res.status(400).json({ error: 'Category is required' });
 
-        await db.read();
-        db.data.columnVisibility = db.data.columnVisibility || {};
-        db.data.columnVisibility[category] = hiddenColumns || [];
-        await db.write();
+        await db.update((data) => {
+            data.columnVisibility = data.columnVisibility || {};
+            data.columnVisibility[category] = hiddenColumns || [];
+        });
         res.json({ message: 'Column visibility updated', columnVisibility: db.data.columnVisibility });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -947,20 +944,18 @@ app.get('/api/hardware', async (req, res) => {
         });
 
         // Auto-fix: correct Category field for items that only matched by Item_Name
-        let needsWrite = false;
-        data.forEach(item => {
-            if ((item.Category || '').toUpperCase() !== catUpper) {
-                // Find in original array and fix
-                const idx = db.data.hardware.findIndex(h => h.id === item.id);
-                if (idx !== -1) {
-                    db.data.hardware[idx].Category = catUpper;
-                    item.Category = catUpper;
-                    needsWrite = true;
+        const itemsToFix = data.filter(item => (item.Category || '').toUpperCase() !== catUpper);
+        if (itemsToFix.length > 0) {
+            // Use atomic update to safely fix categories
+            await db.update((dbData) => {
+                for (const item of itemsToFix) {
+                    const idx = dbData.hardware.findIndex(h => h.id === item.id);
+                    if (idx !== -1) {
+                        dbData.hardware[idx].Category = catUpper;
+                        item.Category = catUpper;
+                    }
                 }
-            }
-        });
-        if (needsWrite) {
-            db.write().catch(err => console.error('Auto-fix category write error:', err));
+            });
         }
     }
     // Format date fields before sending
@@ -1043,72 +1038,69 @@ app.get('/api/hardware/next-serial', async (req, res) => {
 app.post('/api/hardware', async (req, res) => {
     try {
         const items = Array.isArray(req.body) ? req.body : [req.body];
-        await db.read();
-        db.data.hardware = db.data.hardware || [];
-        db.data.hardwareConfig = db.data.hardwareConfig || [];
+        const result = await db.update((data) => {
+            data.hardware = data.hardware || [];
+            data.hardwareConfig = data.hardwareConfig || [];
 
-        const newItems = [];
+            const newItems = [];
 
-        for (const item of items) {
-            let prefix = 'ITEM';
-            const categoryUpper = item.Category ? item.Category.toUpperCase() : '';
+            for (const item of items) {
+                let prefix = 'ITEM';
+                const categoryUpper = item.Category ? item.Category.toUpperCase() : '';
 
-            // 1. Check Standard Map first
-            const standardPrefixes = {
-                'LAPTOP': 'LAP',
-                'MONITOR': 'M',
-                'CPU': 'C',
-                'UPS': 'UPS',
-                'HDD': 'HDD',
-                'SERVER': 'SER',
-                'AIO DESKTOP': 'AIOD',
-                'LASER PRINTER': 'LP'
-            };
+                const standardPrefixes = {
+                    'LAPTOP': 'LAP',
+                    'MONITOR': 'M',
+                    'CPU': 'C',
+                    'UPS': 'UPS',
+                    'HDD': 'HDD',
+                    'SERVER': 'SER',
+                    'AIO DESKTOP': 'AIOD',
+                    'LASER PRINTER': 'LP'
+                };
 
-            if (standardPrefixes[categoryUpper]) {
-                prefix = standardPrefixes[categoryUpper];
-            } else {
-                // 2. Fallback to Config
-                const config = db.data.hardwareConfig.find(c => c.category.toUpperCase() === categoryUpper);
-                if (config) prefix = config.prefix;
-            }
+                if (standardPrefixes[categoryUpper]) {
+                    prefix = standardPrefixes[categoryUpper];
+                } else {
+                    const config = data.hardwareConfig.find(c => c.category.toUpperCase() === categoryUpper);
+                    if (config) prefix = config.prefix;
+                }
 
-            const allCurrent = [...db.data.hardware, ...newItems];
+                const allCurrent = [...data.hardware, ...newItems];
 
-            // If user provided a custom serial override, use it and auto-increment for subsequent items
-            let edpSerial;
-            if (item.EDP_Serial_Override) {
-                edpSerial = item.EDP_Serial_Override;
-                delete item.EDP_Serial_Override;
-            } else if (newItems.length > 0 && newItems[0].EDP_Serial) {
-                // Auto-increment from the first item's serial for subsequent items in the batch
-                const firstSerial = newItems[0].EDP_Serial;
-                const serialMatch = firstSerial.match(/^([A-Za-z]+)(\d+)$/);
-                if (serialMatch) {
-                    const serialPrefix = serialMatch[1];
-                    const serialNumStr = serialMatch[2];
-                    const nextNum = parseInt(serialNumStr, 10) + newItems.length;
-                    edpSerial = `${serialPrefix}${nextNum.toString().padStart(serialNumStr.length, '0')}`;
+                let edpSerial;
+                if (item.EDP_Serial_Override) {
+                    edpSerial = item.EDP_Serial_Override;
+                    delete item.EDP_Serial_Override;
+                } else if (newItems.length > 0 && newItems[0].EDP_Serial) {
+                    const firstSerial = newItems[0].EDP_Serial;
+                    const serialMatch = firstSerial.match(/^([A-Za-z]+)(\d+)$/);
+                    if (serialMatch) {
+                        const serialPrefix = serialMatch[1];
+                        const serialNumStr = serialMatch[2];
+                        const nextNum = parseInt(serialNumStr, 10) + newItems.length;
+                        edpSerial = `${serialPrefix}${nextNum.toString().padStart(serialNumStr.length, '0')}`;
+                    } else {
+                        edpSerial = generateEDPSerial(allCurrent, prefix);
+                    }
                 } else {
                     edpSerial = generateEDPSerial(allCurrent, prefix);
                 }
-            } else {
-                edpSerial = generateEDPSerial(allCurrent, prefix);
+
+                const newItem = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    EDP_Serial: edpSerial,
+                    Allocated_To: 'STOCK',
+                    Issued_Date: '',
+                    ...item
+                };
+                newItems.push(newItem);
             }
 
-            const newItem = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                EDP_Serial: edpSerial,
-                Allocated_To: 'STOCK',
-                Issued_Date: '',
-                ...item
-            };
-            newItems.push(newItem);
-        }
-
-        db.data.hardware.push(...newItems);
-        await db.write();
-        res.json({ message: 'Hardware Added', generatedItems: newItems });
+            data.hardware.push(...newItems);
+            return { newItems };
+        });
+        res.json({ message: 'Hardware Added', generatedItems: result.newItems });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to add hardware' });
@@ -1133,12 +1125,16 @@ app.put('/api/hardware/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
-        await db.read();
-        const index = db.data.hardware.findIndex(h => h.id === id);
-        if (index !== -1) {
-            db.data.hardware[index] = { ...db.data.hardware[index], ...updates };
-            await db.write();
-            res.json(db.data.hardware[index]);
+        const result = await db.update((data) => {
+            const index = data.hardware.findIndex(h => h.id === id);
+            if (index !== -1) {
+                data.hardware[index] = { ...data.hardware[index], ...updates };
+                return { found: true, item: data.hardware[index] };
+            }
+            return { found: false };
+        });
+        if (result.found) {
+            res.json(result.item);
         } else {
             res.status(404).json({ error: 'Item not found' });
         }
@@ -1151,11 +1147,12 @@ app.put('/api/hardware/:id', async (req, res) => {
 app.delete('/api/hardware/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await db.read();
-        const initialLen = db.data.hardware.length;
-        db.data.hardware = db.data.hardware.filter(h => h.id !== id);
-        if (db.data.hardware.length < initialLen) {
-            await db.write();
+        const result = await db.update((data) => {
+            const initialLen = data.hardware.length;
+            data.hardware = data.hardware.filter(h => h.id !== id);
+            return { deleted: data.hardware.length < initialLen };
+        });
+        if (result.deleted) {
             res.json({ message: 'Deleted' });
         } else {
             res.status(404).json({ error: 'Not found' });
@@ -1171,9 +1168,9 @@ app.post('/api/hardware/bulk-delete', async (req, res) => {
     try {
         const { ids } = req.body;
         if (!Array.isArray(ids)) return res.status(400).json({ error: 'Invalid IDs' });
-        await db.read();
-        db.data.hardware = db.data.hardware.filter(h => !ids.includes(h.id));
-        await db.write();
+        await db.update((data) => {
+            data.hardware = data.hardware.filter(h => !ids.includes(h.id));
+        });
         res.json({ message: 'Items deleted successfully' });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -1186,14 +1183,14 @@ app.post('/api/hardware/bulk-update', async (req, res) => {
     try {
         const { ids, updates } = req.body;
         if (!Array.isArray(ids)) return res.status(400).json({ error: 'Invalid IDs' });
-        await db.read();
-        db.data.hardware = db.data.hardware.map(h => {
-            if (ids.includes(h.id)) {
-                return { ...h, ...updates };
-            }
-            return h;
+        await db.update((data) => {
+            data.hardware = data.hardware.map(h => {
+                if (ids.includes(h.id)) {
+                    return { ...h, ...updates };
+                }
+                return h;
+            });
         });
-        await db.write();
         res.json({ message: 'Items updated successfully' });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -1204,12 +1201,13 @@ app.post('/api/hardware/bulk-update', async (req, res) => {
 // Wipe all hardware data (for fresh start)
 app.delete('/api/hardware/wipe-all', async (req, res) => {
     try {
-        await db.read();
-        const count = (db.data.hardware || []).length;
-        db.data.hardware = [];
-        db.data.allocationHistory = [];
-        await db.write();
-        res.json({ message: `Cleared ${count} hardware items and allocation history.` });
+        const result = await db.update((data) => {
+            const count = (data.hardware || []).length;
+            data.hardware = [];
+            data.allocationHistory = [];
+            return { count };
+        });
+        res.json({ message: `Cleared ${result.count} hardware items and allocation history.` });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to wipe hardware data' });
@@ -1240,9 +1238,6 @@ app.post('/api/hardware/upload', async (req, res) => {
         const sheetName = workbook.SheetNames[0];
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        await db.read();
-        db.data.hardware = db.data.hardware || [];
-        db.data.hardwareConfig = db.data.hardwareConfig || [];
         let addedCount = 0;
         let updatedCount = 0;
 
@@ -1253,70 +1248,70 @@ app.post('/api/hardware/upload', async (req, res) => {
 
         const defaultCategory = req.body.defaultCategory || '';
 
+        await db.update((dbData) => {
+            dbData.hardware = dbData.hardware || [];
+            dbData.hardwareConfig = dbData.hardwareConfig || [];
 
+            for (const row of data) {
+                const category = row['Category'] || row['category'] || defaultCategory || 'UNKNOWN';
+                const categoryUpper = category.toUpperCase();
+                let prefix = standardPrefixes[categoryUpper] || 'ITEM';
 
-        for (const row of data) {
-            const category = row['Category'] || row['category'] || defaultCategory || 'UNKNOWN';
-            const categoryUpper = category.toUpperCase();
-            let prefix = standardPrefixes[categoryUpper] || 'ITEM';
+                const existingEDP = row['EDP Serial'] || row['EDP_Serial'] || row['EDP serial'] || row['edp_serial'] || '';
+                let edpSerial = existingEDP;
 
-            const existingEDP = row['EDP Serial'] || row['EDP_Serial'] || row['EDP serial'] || row['edp_serial'] || '';
-            let edpSerial = existingEDP;
+                if (!edpSerial) {
+                    const regex = new RegExp(`^${prefix}(\\d+)$`);
+                    let maxNum = 0;
+                    dbData.hardware.forEach(item => {
+                        if (item.EDP_Serial) {
+                            const match = item.EDP_Serial.match(regex);
+                            if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+                        }
+                    });
+                    const padding = ['HDD', 'SER', 'AIOD', 'LP'].includes(prefix) ? 3 : 4;
+                    edpSerial = `${prefix}${(maxNum + 1 + addedCount).toString().padStart(padding, '0')}`;
+                }
 
-            if (!edpSerial) {
-                const regex = new RegExp(`^${prefix}(\\d+)$`);
-                let maxNum = 0;
-                db.data.hardware.forEach(item => {
-                    if (item.EDP_Serial) {
-                        const match = item.EDP_Serial.match(regex);
-                        if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
-                    }
-                });
-                const padding = ['HDD', 'SER', 'AIOD', 'LP'].includes(prefix) ? 3 : 4;
-                edpSerial = `${prefix}${(maxNum + 1 + addedCount).toString().padStart(padding, '0')}`;
+                const itemData = {
+                    Category: categoryUpper,
+                    Item_Name: row['Item Name'] || row['Item_Name'] || categoryUpper,
+                    EDP_Serial: String(edpSerial),
+                    Make: row['Make'] || '',
+                    Capacity: row['Capacity'] || '',
+                    RAM: row['RAM'] || '',
+                    OS: row['OS'] || '',
+                    Office: row['Office'] || '',
+                    Speed: row['Speed'] || '',
+                    IP: row['IP'] || '',
+                    MAC: row['MAC'] || '',
+                    Company_Serial: row['Company Serial'] || row['Company_Serial'] || '',
+                    Bill_Number: row['Bill Number'] || row['Bill_Number'] || '',
+                    Cost: row['Cost (Rs.)'] || row['Cost'] || '0',
+                    AMC: row['AMC'] || 'No',
+                    AMC_Upto: formatExcelDate(row['AMC Upto'] || row['AMC_Upto']),
+                    Warranty_Upto: formatExcelDate(row['Warranty Upto'] || row['Warranty_Upto']),
+                    Additional_Item: row['Additional Item'] || row['Additional_Item'] || '',
+                    Status: row['Status'] || 'Working',
+                    Remarks: row['Remarks'] || '',
+                    Allocated_To: row['Allocated To'] || row['Allocated_To'] || 'STOCK',
+                    Issued_Date: formatExcelDate(row['Issued Date'] || row['Issued_Date'])
+                };
+
+                const existingIndex = dbData.hardware.findIndex(h => h.EDP_Serial === String(edpSerial));
+                if (existingIndex !== -1) {
+                    const existing = dbData.hardware[existingIndex];
+                    Object.assign(dbData.hardware[existingIndex], { ...itemData, id: existing.id });
+                    updatedCount++;
+                } else {
+                    dbData.hardware.push({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                        ...itemData
+                    });
+                    addedCount++;
+                }
             }
-
-            const itemData = {
-                Category: categoryUpper,
-                Item_Name: row['Item Name'] || row['Item_Name'] || categoryUpper,
-                EDP_Serial: String(edpSerial),
-                Make: row['Make'] || '',
-                Capacity: row['Capacity'] || '',
-                RAM: row['RAM'] || '',
-                OS: row['OS'] || '',
-                Office: row['Office'] || '',
-                Speed: row['Speed'] || '',
-                IP: row['IP'] || '',
-                MAC: row['MAC'] || '',
-                Company_Serial: row['Company Serial'] || row['Company_Serial'] || '',
-                Bill_Number: row['Bill Number'] || row['Bill_Number'] || '',
-                Cost: row['Cost (Rs.)'] || row['Cost'] || '0',
-                AMC: row['AMC'] || 'No',
-                AMC_Upto: formatExcelDate(row['AMC Upto'] || row['AMC_Upto']),
-                Warranty_Upto: formatExcelDate(row['Warranty Upto'] || row['Warranty_Upto']),
-                Additional_Item: row['Additional Item'] || row['Additional_Item'] || '',
-                Status: row['Status'] || 'Working',
-                Remarks: row['Remarks'] || '',
-                Allocated_To: row['Allocated To'] || row['Allocated_To'] || 'STOCK',
-                Issued_Date: formatExcelDate(row['Issued Date'] || row['Issued_Date'])
-            };
-
-            // Upsert: update if exists by EDP_Serial, insert if new
-            const existingIndex = db.data.hardware.findIndex(h => h.EDP_Serial === String(edpSerial));
-            if (existingIndex !== -1) {
-                const existing = db.data.hardware[existingIndex];
-                Object.assign(db.data.hardware[existingIndex], { ...itemData, id: existing.id });
-                updatedCount++;
-            } else {
-                db.data.hardware.push({
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                    ...itemData
-                });
-                addedCount++;
-            }
-        }
-
-        await db.write();
+        });
         res.json({ message: `Bulk upload complete. Added ${addedCount} new, Updated ${updatedCount} existing items.` });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -1328,22 +1323,23 @@ app.post('/api/hardware/upload', async (req, res) => {
 app.post('/api/hardware/allocate', async (req, res) => {
     try {
         const { id, PIN, Issued_Date, changedBy } = req.body;
-        await db.read();
-        const index = db.data.hardware.findIndex(h => h.id === id);
-        if (index !== -1) {
-            const hardware = db.data.hardware[index];
+        const result = await db.update((data) => {
+            const index = data.hardware.findIndex(h => h.id === id);
+            if (index === -1) return { found: false };
+
+            const hardware = data.hardware[index];
             const previousAllocation = hardware.Allocated_To;
 
             // Update current allocation
-            db.data.hardware[index].Allocated_To = PIN || 'STOCK';
-            db.data.hardware[index].Issued_Date = Issued_Date || '';
+            data.hardware[index].Allocated_To = PIN || 'STOCK';
+            data.hardware[index].Issued_Date = Issued_Date || '';
             if (req.body.Issued_Location !== undefined) {
-                db.data.hardware[index].Issued_Location = req.body.Issued_Location || '';
+                data.hardware[index].Issued_Location = req.body.Issued_Location || '';
             }
 
             // Log to history
-            db.data.allocationHistory = db.data.allocationHistory || [];
-            db.data.allocationHistory.push({
+            data.allocationHistory = data.allocationHistory || [];
+            data.allocationHistory.push({
                 id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
                 hardware_id: id,
                 EDP_Serial: hardware.EDP_Serial,
@@ -1352,22 +1348,25 @@ app.post('/api/hardware/allocate', async (req, res) => {
                 to_PIN: PIN || 'STOCK',
                 issued_date: Issued_Date || '',
                 changed_at: new Date().toISOString(),
-                changed_by: changedBy || 'System' // Add changed_by field
+                changed_by: changedBy || 'System'
             });
 
             // Cap history to 5 records for this hardware item
-            const hardwareHistory = db.data.allocationHistory.filter(h => h.hardware_id === id);
+            const hardwareHistory = data.allocationHistory.filter(h => h.hardware_id === id);
             if (hardwareHistory.length > 5) {
                 const numToRemove = hardwareHistory.length - 5;
                 const idsToRemove = hardwareHistory
                     .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at))
                     .slice(0, numToRemove)
                     .map(h => h.id);
-                db.data.allocationHistory = db.data.allocationHistory.filter(h => !idsToRemove.includes(h.id));
+                data.allocationHistory = data.allocationHistory.filter(h => !idsToRemove.includes(h.id));
             }
 
-            await db.write();
-            res.json({ message: 'Allocation updated', item: db.data.hardware[index] });
+            return { found: true, item: data.hardware[index] };
+        });
+
+        if (result.found) {
+            res.json({ message: 'Allocation updated', item: result.item });
         } else {
             res.status(404).json({ error: 'Item not found' });
         }
@@ -1625,59 +1624,60 @@ app.post('/api/allocation/upload', async (req, res) => {
         const workbook = xlsx.read(buffer, { type: 'buffer' });
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-        await db.read();
-        let updated = 0;
-        let skipped = 0;
+        const result = await db.update((dataObj) => {
+            let updated = 0;
+            let skipped = 0;
 
-        for (const row of data) {
-            const edpSerial = row['EDP Serial'];
-            const newPIN = row['PIN'];
-            const issuedDate = formatExcelDate(row['Issued Date']);
+            for (const row of data) {
+                const edpSerial = row['EDP Serial'];
+                const newPIN = row['PIN'];
+                const issuedDate = formatExcelDate(row['Issued Date']);
 
-            if (!edpSerial) { skipped++; continue; }
+                if (!edpSerial) { skipped++; continue; }
 
-            const index = db.data.hardware.findIndex(h => h.EDP_Serial === edpSerial);
-            if (index !== -1) {
-                const hardware = db.data.hardware[index];
-                const previousAllocation = hardware.Allocated_To;
+                const index = dataObj.hardware.findIndex(h => h.EDP_Serial === edpSerial);
+                if (index !== -1) {
+                    const hardware = dataObj.hardware[index];
+                    const previousAllocation = hardware.Allocated_To;
 
-                // Update allocation
-                db.data.hardware[index].Allocated_To = newPIN || 'STOCK';
-                db.data.hardware[index].Issued_Date = issuedDate || '';
+                    // Update allocation
+                    dataObj.hardware[index].Allocated_To = newPIN || 'STOCK';
+                    dataObj.hardware[index].Issued_Date = issuedDate || '';
 
-                // Log to history
-                db.data.allocationHistory = db.data.allocationHistory || [];
-                db.data.allocationHistory.push({
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                    hardware_id: hardware.id,
-                    EDP_Serial: hardware.EDP_Serial,
-                    Item_Name: hardware.Item_Name,
-                    from_PIN: previousAllocation,
-                    to_PIN: newPIN || 'STOCK',
-                    issued_date: issuedDate || '',
-                    changed_at: new Date().toISOString(),
-                    changed_by: changedBy || 'System'
-                });
+                    // Log to history
+                    dataObj.allocationHistory = dataObj.allocationHistory || [];
+                    dataObj.allocationHistory.push({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                        hardware_id: hardware.id,
+                        EDP_Serial: hardware.EDP_Serial,
+                        Item_Name: hardware.Item_Name,
+                        from_PIN: previousAllocation,
+                        to_PIN: newPIN || 'STOCK',
+                        issued_date: issuedDate || '',
+                        changed_at: new Date().toISOString(),
+                        changed_by: changedBy || 'System'
+                    });
 
-                // Cap history to 5 records for this hardware item
-                const hardwareHistory = db.data.allocationHistory.filter(h => h.hardware_id === hardware.id);
-                if (hardwareHistory.length > 5) {
-                    const numToRemove = hardwareHistory.length - 5;
-                    const idsToRemove = hardwareHistory
-                        .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at))
-                        .slice(0, numToRemove)
-                        .map(h => h.id);
-                    db.data.allocationHistory = db.data.allocationHistory.filter(h => !idsToRemove.includes(h.id));
+                    // Cap history to 5 records for this hardware item
+                    const hardwareHistory = dataObj.allocationHistory.filter(h => h.hardware_id === hardware.id);
+                    if (hardwareHistory.length > 5) {
+                        const numToRemove = hardwareHistory.length - 5;
+                        const idsToRemove = hardwareHistory
+                            .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at))
+                            .slice(0, numToRemove)
+                            .map(h => h.id);
+                        dataObj.allocationHistory = dataObj.allocationHistory.filter(h => !idsToRemove.includes(h.id));
+                    }
+
+                    updated++;
+                } else {
+                    skipped++;
                 }
-
-                updated++;
-            } else {
-                skipped++;
             }
-        }
+            return { updated, skipped };
+        });
 
-        await db.write();
-        res.json({ message: `Bulk upload complete. Updated ${updated}, Skipped ${skipped}.` });
+        res.json({ message: `Bulk upload complete. Updated ${result.updated}, Skipped ${result.skipped}.` });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Bulk upload failed' });
@@ -1700,10 +1700,10 @@ app.post('/api/employees/config', async (req, res) => {
         if (!allowedTypes.includes(type)) {
             return res.status(400).json({ error: 'Invalid config type' });
         }
-        await db.read();
-        db.data.employeeConfig = db.data.employeeConfig || {};
-        db.data.employeeConfig[type] = values;
-        await db.write();
+        await db.update((data) => {
+            data.employeeConfig = data.employeeConfig || {};
+            data.employeeConfig[type] = values;
+        });
         res.json({ message: 'Configuration updated' });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -1723,42 +1723,47 @@ app.put('/api/employees/config/rename', async (req, res) => {
             return res.status(400).json({ error: 'Invalid rename values' });
         }
 
-        await db.read();
-        db.data.employeeConfig = db.data.employeeConfig || {};
+        const result = await db.update((data) => {
+            data.employeeConfig = data.employeeConfig || {};
 
-        // Rename in config list
-        const items = db.data.employeeConfig[type] || [];
-        const idx = items.indexOf(oldValue);
-        if (idx === -1) {
-            return res.status(404).json({ error: 'Value not found in config' });
-        }
-        if (items.includes(newValue)) {
-            return res.status(400).json({ error: 'New value already exists' });
-        }
-        items[idx] = newValue;
-        db.data.employeeConfig[type] = items;
-
-        // Map config type to employee field name
-        const fieldMap = {
-            posts: 'Present_Post',
-            sections: 'Section',
-            wings: 'Wing',
-            offices: 'Office'
-        };
-        const field = fieldMap[type];
-
-        // Propagate rename to all employees
-        let updatedCount = 0;
-        const employees = db.data.employees || [];
-        for (const emp of employees) {
-            if (emp[field] === oldValue) {
-                emp[field] = newValue;
-                updatedCount++;
+            // Rename in config list
+            const items = data.employeeConfig[type] || [];
+            const idx = items.indexOf(oldValue);
+            if (idx === -1) {
+                return { error: 'Value not found in config', status: 404 };
             }
+            if (items.includes(newValue)) {
+                return { error: 'New value already exists', status: 400 };
+            }
+            items[idx] = newValue;
+            data.employeeConfig[type] = items;
+
+            // Map config type to employee field name
+            const fieldMap = {
+                posts: 'Present_Post',
+                sections: 'Section',
+                wings: 'Wing',
+                offices: 'Office'
+            };
+            const field = fieldMap[type];
+
+            // Propagate rename to all employees
+            let updatedCount = 0;
+            const employees = data.employees || [];
+            for (const emp of employees) {
+                if (emp[field] === oldValue) {
+                    emp[field] = newValue;
+                    updatedCount++;
+                }
+            }
+            return { updatedCount, success: true };
+        });
+
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
         }
 
-        await db.write();
-        res.json({ message: `Renamed "${oldValue}" to "${newValue}". ${updatedCount} employee(s) updated.`, updatedCount });
+        res.json({ message: `Renamed "${oldValue}" to "${newValue}". ${result.updatedCount} employee(s) updated.`, updatedCount: result.updatedCount });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to rename config value' });
@@ -1794,19 +1799,25 @@ app.get('/api/employees', async (req, res) => {
 app.post('/api/employees', async (req, res) => {
     try {
         const employee = req.body;
-        await db.read();
-        db.data.employees = db.data.employees || [];
+        const result = await db.update((data) => {
+            data.employees = data.employees || [];
 
-        // Check unique PIN
-        if (db.data.employees.find(e => e.PIN === employee.PIN)) {
-            return res.status(400).json({ error: 'Employee with this PIN already exists' });
+            // Check unique PIN
+            if (data.employees.find(e => e.PIN === employee.PIN)) {
+                return { error: 'Employee with this PIN already exists', status: 400 };
+            }
+
+            data.employees.push({
+                id: Date.now().toString(),
+                ...employee
+            });
+            return { success: true };
+        });
+
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
         }
 
-        db.data.employees.push({
-            id: Date.now().toString(),
-            ...employee
-        });
-        await db.write();
         res.status(201).json({ message: 'Employee added successfully', employee });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -1818,12 +1829,17 @@ app.put('/api/employees/:pin', async (req, res) => {
     try {
         const { pin } = req.params;
         const updates = req.body;
-        await db.read();
-        const index = db.data.employees.findIndex(e => String(e.PIN) === String(pin) || String(e.id) === String(pin));
-        if (index !== -1) {
-            db.data.employees[index] = { ...db.data.employees[index], ...updates };
-            await db.write();
-            res.json(db.data.employees[index]);
+        const result = await db.update((data) => {
+            const index = data.employees.findIndex(e => String(e.PIN) === String(pin) || String(e.id) === String(pin));
+            if (index !== -1) {
+                data.employees[index] = { ...data.employees[index], ...updates };
+                return { found: true, item: data.employees[index] };
+            }
+            return { found: false };
+        });
+        
+        if (result.found) {
+            res.json(result.item);
         } else {
             res.status(404).json({ error: 'Employee not found' });
         }
@@ -1836,14 +1852,16 @@ app.put('/api/employees/:pin', async (req, res) => {
 app.delete('/api/employees/:pin', async (req, res) => {
     try {
         const { pin } = req.params;
-        await db.read();
-        const initialLen = db.data.employees.length;
-        // Match by either ID or PIN using String comparison
-        db.data.employees = db.data.employees.filter(e =>
-            String(e.id) !== String(pin) && String(e.PIN) !== String(pin)
-        );
-        if (db.data.employees.length < initialLen) {
-            await db.write();
+        const result = await db.update((data) => {
+            const initialLen = data.employees.length;
+            // Match by either ID or PIN using String comparison
+            data.employees = data.employees.filter(e =>
+                String(e.id) !== String(pin) && String(e.PIN) !== String(pin)
+            );
+            return { deleted: data.employees.length < initialLen };
+        });
+
+        if (result.deleted) {
             res.json({ message: 'Employee deleted' });
         } else {
             res.status(404).json({ error: 'Employee not found' });
@@ -1861,40 +1879,41 @@ app.post('/api/employees/upload', memoryUpload.single('file'), async (req, res) 
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-        await db.read();
-        db.data.employees = db.data.employees || [];
-        let added = 0;
-        let updated = 0;
+        const result = await db.update((dbData) => {
+            dbData.employees = dbData.employees || [];
+            let added = 0;
+            let updated = 0;
 
-        for (const row of data) {
-            const normalizedRow = {
-                PIN: row.PIN || row['PIN'] || '',
-                Name: row.Name || row['Name'] || '',
-                Present_Post: row.Present_Post || row['Present Post'] || row['PresentPost'] || '',
-                Wing: row.Wing || row['Wing'] || '',
-                Office: row.Office || row['Office'] || '',
-                Email: row.Email || row['Email'] || '',
-                Mobile: row.Mobile || row['Mobile'] || row['Phone'] || '',
-                Hqr_Field: row.Hqr_Field || row['Hqr_Field'] || row['Hqr/Field'] || row['HqrField'] || row['Hqr Field'] || '',
-                DOB: row.DOB || row['DOB'] || row['Date of Birth'] || '',
-                Retirement_Date: row.Retirement_Date || row['Retirement_Date'] || row['Retirement Date'] || row['Retirement'] || ''
-            };
+            for (const row of data) {
+                const normalizedRow = {
+                    PIN: row.PIN || row['PIN'] || '',
+                    Name: row.Name || row['Name'] || '',
+                    Present_Post: row.Present_Post || row['Present Post'] || row['PresentPost'] || '',
+                    Wing: row.Wing || row['Wing'] || '',
+                    Office: row.Office || row['Office'] || '',
+                    Email: row.Email || row['Email'] || '',
+                    Mobile: row.Mobile || row['Mobile'] || row['Phone'] || '',
+                    Hqr_Field: row.Hqr_Field || row['Hqr_Field'] || row['Hqr/Field'] || row['HqrField'] || row['Hqr Field'] || '',
+                    DOB: row.DOB || row['DOB'] || row['Date of Birth'] || '',
+                    Retirement_Date: row.Retirement_Date || row['Retirement_Date'] || row['Retirement Date'] || row['Retirement'] || ''
+                };
 
-            if (!normalizedRow.PIN || !normalizedRow.Name) { continue; }
+                if (!normalizedRow.PIN || !normalizedRow.Name) { continue; }
 
-            // Upsert: update if exists by PIN, insert if new
-            const existingIndex = db.data.employees.findIndex(e => String(e.PIN) === String(normalizedRow.PIN));
-            if (existingIndex !== -1) {
-                const existing = db.data.employees[existingIndex];
-                Object.assign(db.data.employees[existingIndex], { ...normalizedRow, id: existing.id });
-                updated++;
-            } else {
-                db.data.employees.push({ id: Date.now().toString() + added, ...normalizedRow });
-                added++;
+                // Upsert: update if exists by PIN, insert if new
+                const existingIndex = dbData.employees.findIndex(e => String(e.PIN) === String(normalizedRow.PIN));
+                if (existingIndex !== -1) {
+                    const existing = dbData.employees[existingIndex];
+                    Object.assign(dbData.employees[existingIndex], { ...normalizedRow, id: existing.id });
+                    updated++;
+                } else {
+                    dbData.employees.push({ id: Date.now().toString() + added, ...normalizedRow });
+                    added++;
+                }
             }
-        }
-        await db.write();
-        res.json({ message: `Bulk upload complete. Added ${added} new, Updated ${updated} existing employees.` });
+            return { added, updated };
+        });
+        res.json({ message: `Bulk upload complete. Added ${result.added} new, Updated ${result.updated} existing employees.` });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Bulk upload failed' });
@@ -1964,24 +1983,30 @@ app.get('/api/ewaste/years', async (req, res) => {
 app.post('/api/ewaste/years', async (req, res) => {
     try {
         const { year } = req.body;
-        await db.read();
-        db.data.ewasteYears = db.data.ewasteYears || [];
+        const result = await db.update((data) => {
+            data.ewasteYears = data.ewasteYears || [];
 
-        if (db.data.ewasteYears.find(y => y.year === year)) {
-            return res.status(400).json({ error: 'E-Waste year already exists' });
+            if (data.ewasteYears.find(y => y.year === year)) {
+                return { error: 'E-Waste year already exists', status: 400 };
+            }
+
+            const newYear = {
+                year,
+                created_at: new Date().toISOString(),
+                isCompleted: false,
+                completionDoc: '',
+                completedAt: ''
+            };
+
+            data.ewasteYears.push(newYear);
+            return { success: true, newYear };
+        });
+
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
         }
 
-        const newYear = {
-            year,
-            created_at: new Date().toISOString(),
-            isCompleted: false,
-            completionDoc: '',
-            completedAt: ''
-        };
-
-        db.data.ewasteYears.push(newYear);
-        await db.write();
-        res.status(201).json({ message: 'E-Waste year created', year: newYear });
+        res.status(201).json({ message: 'E-Waste year created', year: result.newYear });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to create year' });
@@ -2009,25 +2034,29 @@ app.get('/api/ewaste/years/:year', async (req, res) => {
 app.post('/api/ewaste/years/:year/complete', upload.single('document'), async (req, res) => {
     try {
         const { year } = req.params;
-        await db.read();
+        const result = await db.update((data) => {
+            const yearIndex = data.ewasteYears?.findIndex(y => y.year === year);
+            if (yearIndex === -1 || yearIndex === undefined) {
+                return { error: 'Year not found', status: 404 };
+            }
 
-        const yearIndex = db.data.ewasteYears?.findIndex(y => y.year === year);
-        if (yearIndex === -1) {
-            return res.status(404).json({ error: 'Year not found' });
+            data.ewasteYears[yearIndex].isCompleted = true;
+            data.ewasteYears[yearIndex].completedAt = new Date().toISOString();
+            if (req.file) {
+                data.ewasteYears[yearIndex].completionDoc = req.file.filename; // Store the filename
+            }
+
+            const ewasteItems = (data.ewasteItems || []).filter(item => item.year === year);
+            const hardwareIdsToRemove = ewasteItems.map(item => item.hardware_id);
+
+            data.hardware = (data.hardware || []).filter(h => !hardwareIdsToRemove.includes(h.id));
+            return { success: true };
+        });
+
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
         }
 
-        db.data.ewasteYears[yearIndex].isCompleted = true;
-        db.data.ewasteYears[yearIndex].completedAt = new Date().toISOString();
-        if (req.file) {
-            db.data.ewasteYears[yearIndex].completionDoc = req.file.filename; // Store the filename
-        }
-
-        const ewasteItems = (db.data.ewasteItems || []).filter(item => item.year === year);
-        const hardwareIdsToRemove = ewasteItems.map(item => item.hardware_id);
-
-        db.data.hardware = (db.data.hardware || []).filter(h => !hardwareIdsToRemove.includes(h.id));
-
-        await db.write();
         res.json({ message: 'E-Waste year marked as completed and hardware removed' });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -2062,20 +2091,23 @@ app.get('/api/ewaste/years/:year/document', async (req, res) => {
 app.delete('/api/ewaste/years/:year', async (req, res) => {
     try {
         const { year } = req.params;
-        await db.read();
+        const result = await db.update((data) => {
+            const yearIndex = data.ewasteYears?.findIndex(y => y.year === year);
+            if (yearIndex === -1 || yearIndex === undefined) {
+                return { error: 'Year not found', status: 404 };
+            }
 
-        const yearIndex = db.data.ewasteYears?.findIndex(y => y.year === year);
-        if (yearIndex === -1) {
-            return res.status(404).json({ error: 'Year not found' });
+            // Delete associated items
+            data.ewasteItems = (data.ewasteItems || []).filter(item => item.year !== year);
+
+            // Delete the year
+            data.ewasteYears.splice(yearIndex, 1);
+            return { success: true };
+        });
+
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
         }
-
-        // Delete associated items
-        db.data.ewasteItems = (db.data.ewasteItems || []).filter(item => item.year !== year);
-
-        // Delete the year
-        db.data.ewasteYears.splice(yearIndex, 1);
-
-        await db.write();
         res.json({ message: 'E-Waste year deleted successfully' });
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -2102,33 +2134,34 @@ app.post('/api/ewaste/:year/items', async (req, res) => {
         const { year } = req.params;
         const { hardware_ids } = req.body;
 
-        await db.read();
-        db.data.ewasteItems = db.data.ewasteItems || [];
+        const result = await db.update((data) => {
+            data.ewasteItems = data.ewasteItems || [];
 
-        const invoices = db.data.invoices || [];
-        const addedItems = [];
+            const invoices = data.invoices || [];
+            const addedItems = [];
 
-        for (const hwId of hardware_ids) {
-            const hardware = db.data.hardware?.find(h => h.id === hwId);
-            if (hardware) {
-                const invoice = invoices.find(inv => inv.Bill_Number === hardware.Bill_Number);
+            for (const hwId of hardware_ids) {
+                const hardware = data.hardware?.find(h => h.id === hwId);
+                if (hardware) {
+                    const invoice = invoices.find(inv => inv.Bill_Number === hardware.Bill_Number);
 
-                const ewasteItem = {
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                    year,
-                    hardware_id: hardware.id,
-                    ...hardware,
-                    date_of_purchase: invoice?.Date || '',
-                    added_at: new Date().toISOString()
-                };
+                    const ewasteItem = {
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                        year,
+                        hardware_id: hardware.id,
+                        ...hardware,
+                        date_of_purchase: invoice?.Date || '',
+                        added_at: new Date().toISOString()
+                    };
 
-                db.data.ewasteItems.push(ewasteItem);
-                addedItems.push(ewasteItem);
+                    data.ewasteItems.push(ewasteItem);
+                    addedItems.push(ewasteItem);
+                }
             }
-        }
+            return { addedItems };
+        });
 
-        await db.write();
-        res.json({ message: `${addedItems.length} items added to E-Waste`, items: addedItems });
+        res.json({ message: `${result.addedItems.length} items added to E-Waste`, items: result.addedItems });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to add items' });
@@ -2139,13 +2172,13 @@ app.post('/api/ewaste/:year/items', async (req, res) => {
 app.delete('/api/ewaste/:year/items/:id', async (req, res) => {
     try {
         const { year, id } = req.params;
-        await db.read();
+        const result = await db.update((data) => {
+            const initialLen = data.ewasteItems?.length || 0;
+            data.ewasteItems = (data.ewasteItems || []).filter(item => !(item.id === id && item.year === year));
+            return { deleted: data.ewasteItems.length < initialLen };
+        });
 
-        const initialLen = db.data.ewasteItems?.length || 0;
-        db.data.ewasteItems = (db.data.ewasteItems || []).filter(item => !(item.id === id && item.year === year));
-
-        if (db.data.ewasteItems.length < initialLen) {
-            await db.write();
+        if (result.deleted) {
             res.json({ message: 'Item removed from E-Waste' });
         } else {
             res.status(404).json({ error: 'Item not found' });
@@ -2480,73 +2513,74 @@ app.post('/api/ewaste/:year/upload', async (req, res) => {
         const workbook = xlsx.readFile(filePath);
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-        await db.read();
-        db.data.ewasteItems = db.data.ewasteItems || [];
+        const result = await db.update((dataObj) => {
+            dataObj.ewasteItems = dataObj.ewasteItems || [];
 
-        let added = 0;
-        let updated = 0;
-        for (const row of data) {
-            const edpSerial = row['EDP Serial'] || row['EDP_Serial'] || row['edp serial'] || row['edp_serial'];
-            if (!edpSerial) continue;
+            let added = 0;
+            let updated = 0;
+            for (const row of data) {
+                const edpSerial = row['EDP Serial'] || row['EDP_Serial'] || row['edp serial'] || row['edp_serial'];
+                if (!edpSerial) continue;
 
-            const normalizedEDP = String(edpSerial).trim();
-            const hardware = db.data.hardware?.find(h => String(h.EDP_Serial).trim() === normalizedEDP);
+                const normalizedEDP = String(edpSerial).trim();
+                const hardware = dataObj.hardware?.find(h => String(h.EDP_Serial).trim() === normalizedEDP);
 
-            let ewasteItem;
-            if (hardware) {
-                ewasteItem = {
-                    year,
-                    hardware_id: hardware.id,
-                    ...hardware,
-                    date_of_purchase: row['Date of Purchase'] || row['date_of_purchase'] || '',
-                    added_at: new Date().toISOString()
-                };
-            } else {
-                ewasteItem = {
-                    year,
-                    hardware_id: null,
-                    Item_Name: row['Item Name'] || '',
-                    EDP_Serial: normalizedEDP,
-                    date_of_purchase: row['Date of Purchase'] || '',
-                    Bill_Number: row['Bill Number'] || '',
-                    Cost: row['Cost'] || '',
-                    Make: row['Make'] || '',
-                    Capacity: row['Capacity'] || '',
-                    RAM: row['RAM'] || '',
-                    OS: row['OS'] || '',
-                    Office: row['Office'] || '',
-                    Speed: row['Speed'] || '',
-                    IP: row['IP'] || '',
-                    MAC: row['MAC'] || '',
-                    Company_Serial: row['Company Serial'] || '',
-                    Additional_Item: row['Additional Items'] || '',
-                    Status: row['Status'] || '',
-                    AMC: row['AMC'] || '',
-                    AMC_Upto: row['AMC Upto'] || '',
-                    Remarks: row['Remarks'] || '',
-                    added_at: new Date().toISOString()
-                };
+                let ewasteItem;
+                if (hardware) {
+                    ewasteItem = {
+                        year,
+                        hardware_id: hardware.id,
+                        ...hardware,
+                        date_of_purchase: row['Date of Purchase'] || row['date_of_purchase'] || '',
+                        added_at: new Date().toISOString()
+                    };
+                } else {
+                    ewasteItem = {
+                        year,
+                        hardware_id: null,
+                        Item_Name: row['Item Name'] || '',
+                        EDP_Serial: normalizedEDP,
+                        date_of_purchase: row['Date of Purchase'] || '',
+                        Bill_Number: row['Bill Number'] || '',
+                        Cost: row['Cost'] || '',
+                        Make: row['Make'] || '',
+                        Capacity: row['Capacity'] || '',
+                        RAM: row['RAM'] || '',
+                        OS: row['OS'] || '',
+                        Office: row['Office'] || '',
+                        Speed: row['Speed'] || '',
+                        IP: row['IP'] || '',
+                        MAC: row['MAC'] || '',
+                        Company_Serial: row['Company Serial'] || '',
+                        Additional_Item: row['Additional Items'] || '',
+                        Status: row['Status'] || '',
+                        AMC: row['AMC'] || '',
+                        AMC_Upto: row['AMC Upto'] || '',
+                        Remarks: row['Remarks'] || '',
+                        added_at: new Date().toISOString()
+                    };
+                }
+
+                // Upsert: update if exists by EDP_Serial + year, insert if new
+                const existingIndex = dataObj.ewasteItems.findIndex(e =>
+                    String(e.EDP_Serial).trim() === normalizedEDP && e.year === year
+                );
+                if (existingIndex !== -1) {
+                    const existing = dataObj.ewasteItems[existingIndex];
+                    Object.assign(dataObj.ewasteItems[existingIndex], { ...ewasteItem, id: existing.id });
+                    updated++;
+                } else {
+                    dataObj.ewasteItems.push({
+                        id: Date.now().toString() + added + Math.random().toString(36).substr(2, 9),
+                        ...ewasteItem
+                    });
+                    added++;
+                }
             }
+            return { added, updated };
+        });
 
-            // Upsert: update if exists by EDP_Serial + year, insert if new
-            const existingIndex = db.data.ewasteItems.findIndex(e =>
-                String(e.EDP_Serial).trim() === normalizedEDP && e.year === year
-            );
-            if (existingIndex !== -1) {
-                const existing = db.data.ewasteItems[existingIndex];
-                Object.assign(db.data.ewasteItems[existingIndex], { ...ewasteItem, id: existing.id });
-                updated++;
-            } else {
-                db.data.ewasteItems.push({
-                    id: Date.now().toString() + added + Math.random().toString(36).substr(2, 9),
-                    ...ewasteItem
-                });
-                added++;
-            }
-        }
-
-        await db.write();
-        res.json({ message: `Bulk upload complete. Added ${added} new, Updated ${updated} existing items.` });
+        res.json({ message: `Bulk upload complete. Added ${result.added} new, Updated ${result.updated} existing items.` });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Upload failed' });
@@ -2578,51 +2612,33 @@ app.post('/api/software', async (req, res) => {
         const { fileData, fileName, data } = req.body;
         const softwareData = (typeof data === 'string') ? JSON.parse(data) : data || {};
 
-        await db.read();
-        db.data.software = db.data.software || [];
+        const result = await db.update((dataObj) => {
+            dataObj.software = dataObj.software || [];
 
-        let savedFilename = '';
+            const newSoftware = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                Software_Name: softwareData.Software_Name,
+                Quantity: softwareData.Quantity,
+                Source: softwareData.Source,
+                Bill_Number: softwareData.Bill_Number || '',
+                Vendor_Name: softwareData.Vendor_Name || '',
+                Letter_Number: softwareData.Letter_Number || '',
+                Purchase_Date: softwareData.Purchase_Date || '',
+                Amount: softwareData.Amount || 0,
+                Valid_Upto: softwareData.Valid_Upto || '',
+                Issued_To: softwareData.Issued_To || '',
+                License_Code: softwareData.License_Code || '',
+                Additional_Info: softwareData.Additional_Info || '',
+                Multiple_Issued: softwareData.Multiple_Issued || [],
+                Document: savedFilename,
+                created_at: new Date().toISOString()
+            };
 
-        if (fileData && fileName) {
-            try {
-                const safeName = fileName.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
-                const uniqueName = Date.now() + '-' + safeName;
-                const buffer = Buffer.from(fileData.split(',')[1], 'base64');
+            dataObj.software.push(newSoftware);
+            return { newSoftware };
+        });
 
-                const targetDir = ensureUploadsDir();
-                const targetPath = path.join(targetDir, uniqueName);
-
-                fs.writeFileSync(targetPath, buffer);
-                console.log('Saved Software Document:', uniqueName);
-                savedFilename = uniqueName;
-            } catch (err) {
-                console.error('Context:', err.message || err);
-                // We can continue without file or error out (User choice, usually warning is enough)
-            }
-        }
-
-        const newSoftware = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            Software_Name: softwareData.Software_Name,
-            Quantity: softwareData.Quantity,
-            Source: softwareData.Source,
-            Bill_Number: softwareData.Bill_Number || '',
-            Vendor_Name: softwareData.Vendor_Name || '',
-            Letter_Number: softwareData.Letter_Number || '',
-            Purchase_Date: softwareData.Purchase_Date || '',
-            Amount: softwareData.Amount || 0,
-            Valid_Upto: softwareData.Valid_Upto || '',
-            Issued_To: softwareData.Issued_To || '',
-            License_Code: softwareData.License_Code || '',
-            Additional_Info: softwareData.Additional_Info || '',
-            Multiple_Issued: softwareData.Multiple_Issued || [],
-            Document: savedFilename,
-            created_at: new Date().toISOString()
-        };
-
-        db.data.software.push(newSoftware);
-        await db.write();
-        res.status(201).json({ message: 'Software created', software: newSoftware });
+        res.status(201).json({ message: 'Software created', software: result.newSoftware });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to create software' });
@@ -2633,46 +2649,48 @@ app.post('/api/software', async (req, res) => {
 app.put('/api/software/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await db.read();
+        const result = await db.update((dataObj) => {
+            const index = dataObj.software?.findIndex(s => s.id === id);
+            if (index === -1 || index === undefined) {
+                return { error: 'Software not found', status: 404 };
+            }
 
-        const index = db.data.software?.findIndex(s => s.id === id);
-        if (index === -1) {
-            return res.status(404).json({ error: 'Software not found' });
+            // Handle base64 file upload (same pattern as POST)
+            let documentFilename = dataObj.software[index].Document;
+            if (req.body.fileData && req.body.fileName) {
+                const base64Data = req.body.fileData.split(',')[1] || req.body.fileData;
+                const buffer = Buffer.from(base64Data, 'base64');
+                const uniqueName = Date.now() + '-' + req.body.fileName;
+                const filePath = path.join(uploadsDir, uniqueName);
+                fs.writeFileSync(filePath, buffer);
+                documentFilename = uniqueName;
+            }
+
+            dataObj.software[index] = {
+                ...dataObj.software[index],
+                Software_Name: softwareData.Software_Name,
+                Quantity: softwareData.Quantity,
+                Source: softwareData.Source,
+                Bill_Number: softwareData.Bill_Number || '',
+                Vendor_Name: softwareData.Vendor_Name || '',
+                Letter_Number: softwareData.Letter_Number || '',
+                Purchase_Date: softwareData.Purchase_Date || '',
+                Amount: softwareData.Amount || 0,
+                Valid_Upto: softwareData.Valid_Upto || '',
+                Issued_To: softwareData.Issued_To || '',
+                License_Code: softwareData.License_Code || '',
+                Additional_Info: softwareData.Additional_Info || '',
+                Multiple_Issued: softwareData.Multiple_Issued || [],
+                Document: documentFilename
+            };
+            return { success: true, software: dataObj.software[index] };
+        });
+
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
         }
 
-        const softwareData = req.body.data || req.body;
-
-        // Handle base64 file upload (same pattern as POST)
-        let documentFilename = db.data.software[index].Document;
-        if (req.body.fileData && req.body.fileName) {
-            const base64Data = req.body.fileData.split(',')[1] || req.body.fileData;
-            const buffer = Buffer.from(base64Data, 'base64');
-            const uniqueName = Date.now() + '-' + req.body.fileName;
-            const filePath = path.join(uploadsDir, uniqueName);
-            fs.writeFileSync(filePath, buffer);
-            documentFilename = uniqueName;
-        }
-
-        db.data.software[index] = {
-            ...db.data.software[index],
-            Software_Name: softwareData.Software_Name,
-            Quantity: softwareData.Quantity,
-            Source: softwareData.Source,
-            Bill_Number: softwareData.Bill_Number || '',
-            Vendor_Name: softwareData.Vendor_Name || '',
-            Letter_Number: softwareData.Letter_Number || '',
-            Purchase_Date: softwareData.Purchase_Date || '',
-            Amount: softwareData.Amount || 0,
-            Valid_Upto: softwareData.Valid_Upto || '',
-            Issued_To: softwareData.Issued_To || '',
-            License_Code: softwareData.License_Code || '',
-            Additional_Info: softwareData.Additional_Info || '',
-            Multiple_Issued: softwareData.Multiple_Issued || [],
-            Document: documentFilename
-        };
-
-        await db.write();
-        res.json({ message: 'Software updated', software: db.data.software[index] });
+        res.json({ message: 'Software updated', software: result.software });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to update software' });
@@ -2683,13 +2701,13 @@ app.put('/api/software/:id', async (req, res) => {
 app.delete('/api/software/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await db.read();
+        const result = await db.update((dataObj) => {
+            const initialLen = dataObj.software?.length || 0;
+            dataObj.software = (dataObj.software || []).filter(s => s.id !== id);
+            return { deleted: dataObj.software.length < initialLen };
+        });
 
-        const initialLen = db.data.software?.length || 0;
-        db.data.software = (db.data.software || []).filter(s => s.id !== id);
-
-        if (db.data.software.length < initialLen) {
-            await db.write();
+        if (result.deleted) {
             res.json({ message: 'Software deleted' });
         } else {
             res.status(404).json({ error: 'Software not found' });
@@ -2767,57 +2785,58 @@ app.post('/api/software/upload', memoryUpload.single('file'), async (req, res) =
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-        await db.read();
-        db.data.software = db.data.software || [];
+        const result = await db.update((dataObj) => {
+            dataObj.software = dataObj.software || [];
 
-        let added = 0;
-        let updated = 0;
-        for (const row of data) {
-            if (!row['Software Name']) continue;
+            let added = 0;
+            let updated = 0;
+            for (const row of data) {
+                if (!row['Software Name']) continue;
 
-            const softwareData = {
-                Software_Name: row['Software Name'],
-                Quantity: row['Quantity'] || 1,
-                Source: row['Source'] || 'Purchased',
-                Bill_Number: row['Bill Number'] || '',
-                Vendor_Name: row['Vendor Name'] || '',
-                Letter_Number: row['Letter Number'] || '',
-                Purchase_Date: formatExcelDate(row['Purchase Date']),
-                Amount: row['Amount (INR)'] || 0,
-                Valid_Upto: formatExcelDate(row['Valid Upto']),
-                Issued_To: row['Issued To'] || '',
-                License_Code: row['License Code'] || '',
-                Additional_Info: row['Additional Info'] || '',
-                Multiple_Issued: row['Multiple Issued'] ? row['Multiple Issued'].split(',').map(s => s.trim()) : []
-            };
+                const softwareData = {
+                    Software_Name: row['Software Name'],
+                    Quantity: row['Quantity'] || 1,
+                    Source: row['Source'] || 'Purchased',
+                    Bill_Number: row['Bill Number'] || '',
+                    Vendor_Name: row['Vendor Name'] || '',
+                    Letter_Number: row['Letter Number'] || '',
+                    Purchase_Date: formatExcelDate(row['Purchase Date']),
+                    Amount: row['Amount (INR)'] || 0,
+                    Valid_Upto: formatExcelDate(row['Valid Upto']),
+                    Issued_To: row['Issued To'] || '',
+                    License_Code: row['License Code'] || '',
+                    Additional_Info: row['Additional Info'] || '',
+                    Multiple_Issued: row['Multiple Issued'] ? row['Multiple Issued'].split(',').map(s => s.trim()) : []
+                };
 
-            // Upsert: update if exists by Software_Name + Bill_Number, insert if new
-            const existingIndex = db.data.software.findIndex(s =>
-                s.Software_Name === softwareData.Software_Name &&
-                s.Bill_Number === softwareData.Bill_Number
-            );
-            if (existingIndex !== -1) {
-                const existing = db.data.software[existingIndex];
-                Object.assign(db.data.software[existingIndex], {
-                    ...softwareData,
-                    id: existing.id,
-                    Document: existing.Document || '',
-                    created_at: existing.created_at
-                });
-                updated++;
-            } else {
-                db.data.software.push({
-                    id: Date.now().toString() + added + Math.random().toString(36).substr(2, 9),
-                    ...softwareData,
-                    Document: '',
-                    created_at: new Date().toISOString()
-                });
-                added++;
+                // Upsert: update if exists by Software_Name + Bill_Number, insert if new
+                const existingIndex = dataObj.software.findIndex(s =>
+                    s.Software_Name === softwareData.Software_Name &&
+                    s.Bill_Number === softwareData.Bill_Number
+                );
+                if (existingIndex !== -1) {
+                    const existing = dataObj.software[existingIndex];
+                    Object.assign(dataObj.software[existingIndex], {
+                        ...softwareData,
+                        id: existing.id,
+                        Document: existing.Document || '',
+                        created_at: existing.created_at
+                    });
+                    updated++;
+                } else {
+                    dataObj.software.push({
+                        id: Date.now().toString() + added + Math.random().toString(36).substr(2, 9),
+                        ...softwareData,
+                        Document: '',
+                        created_at: new Date().toISOString()
+                    });
+                    added++;
+                }
             }
-        }
+            return { added, updated };
+        });
 
-        await db.write();
-        res.json({ message: `Bulk upload complete. Added ${added} new, Updated ${updated} existing software entries.` });
+        res.json({ message: `Bulk upload complete. Added ${result.added} new, Updated ${result.updated} existing software entries.` });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Upload failed' });
@@ -3112,62 +3131,65 @@ app.post('/api/permanent-allocation/transfer', upload.single('notesheet'), async
             return res.status(400).json({ error: 'No items selected for transfer' });
         }
 
-        await db.read();
-        db.data.permanent_allocation = db.data.permanent_allocation || [];
-        db.data.hardware = db.data.hardware || [];
-        const employees = db.data.employees || [];
-        const invoices = db.data.invoices || [];
+        const result = await db.update((dataObj) => {
+            dataObj.permanent_allocation = dataObj.permanent_allocation || [];
+            dataObj.hardware = dataObj.hardware || [];
+            const employees = dataObj.employees || [];
+            const invoices = dataObj.invoices || [];
 
-        const transferredItems = [];
-        const remainingHardware = [];
-        const updateIds = ids.map(String);
+            const transferredItems = [];
+            const remainingHardware = [];
+            const updateIds = ids.map(String);
 
-        db.data.hardware.forEach(item => {
-            if (updateIds.includes(String(item.id))) {
-                // Determine PIN (Allocated_To or Issued_To)
-                const pin = item.Allocated_To || item.Issued_To || '';
+            dataObj.hardware.forEach(item => {
+                if (updateIds.includes(String(item.id))) {
+                    // Determine PIN (Allocated_To or Issued_To)
+                    const pin = item.Allocated_To || item.Issued_To || '';
 
-                // Lookup Employee (robust comparison handling leading zeros)
-                const targetPin = normalizePin(pin);
-                const emp = employees.find(e => normalizePin(e.PIN) === targetPin);
+                    // Lookup Employee (robust comparison handling leading zeros)
+                    const targetPin = normalizePin(pin);
+                    const emp = employees.find(e => normalizePin(e.PIN) === targetPin);
 
-                // Lookup Invoice for Purchase Date if missing
-                const invoice = invoices.find(i => i.Bill_Number === item.Bill_Number);
-                const purchaseDate = item.Date_of_Purchase || (invoice ? invoice.Date : '');
+                    // Lookup Invoice for Purchase Date if missing
+                    const invoice = invoices.find(i => i.Bill_Number === item.Bill_Number);
+                    const purchaseDate = item.Date_of_Purchase || (invoice ? invoice.Date : '');
 
-                // Snapshot Item
-                const newItem = {
-                    ...item,
-                    PIN: pin,
-                    // Lookup keys with potential spaces
-                    Name: emp ? (emp.Name || emp['Employee Name']) : (item.Issued_To || item.Name || ''),
-                    Post: emp ? (emp.Present_Post || emp['Present Post'] || emp.Designation) : (item.Present_Post || ''),
-                    Date_of_Purchase: purchaseDate,
-                    Transfer_Id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                    Transfer_Date: new Date().toISOString().split('T')[0],
-                    R_T_Type: transferType,
-                    Target_Office: targetOffice,
-                    Notesheet_Doc: file ? file.filename : null
-                };
+                    // Snapshot Item
+                    const newItem = {
+                        ...item,
+                        PIN: pin,
+                        // Lookup keys with potential spaces
+                        Name: emp ? (emp.Name || emp['Employee Name']) : (item.Issued_To || item.Name || ''),
+                        Post: emp ? (emp.Present_Post || emp['Present Post'] || emp.Designation) : (item.Present_Post || ''),
+                        Date_of_Purchase: purchaseDate,
+                        Transfer_Id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                        Transfer_Date: new Date().toISOString().split('T')[0],
+                        R_T_Type: transferType,
+                        Target_Office: targetOffice,
+                        Notesheet_Doc: file ? file.filename : null
+                    };
 
-                // Removed explicit Office overwrite to preserve source office
+                    transferredItems.push(newItem);
+                } else {
+                    remainingHardware.push(item);
+                }
+            });
 
-                transferredItems.push(newItem);
-            } else {
-                remainingHardware.push(item);
+            if (transferredItems.length === 0) {
+                return { error: 'Selected items not found in hardware inventory', status: 404 };
             }
+
+            dataObj.permanent_allocation.push(...transferredItems);
+            dataObj.hardware = remainingHardware;
+
+            return { success: true, count: transferredItems.length };
         });
 
-        if (transferredItems.length === 0) {
-            return res.status(404).json({ error: 'Selected items not found in hardware inventory' });
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
         }
 
-        db.data.permanent_allocation.push(...transferredItems);
-        db.data.hardware = remainingHardware;
-
-        await db.write();
-
-        res.json({ message: `Successfully transferred ${transferredItems.length} items`, count: transferredItems.length });
+        res.json({ message: `Successfully transferred ${result.count} items`, count: result.count });
 
     } catch (error) {
         console.error('Context:', error.message || error);
@@ -3435,6 +3457,61 @@ app.get('/api/dashboard/retirement-suggestions', async (req, res) => {
     }
 });
 
+// Office Suggestions - Find employees who hold hardware but are not in the selected Home Office
+app.get('/api/dashboard/office-suggestions', async (req, res) => {
+    try {
+        const { homeOffice } = req.query;
+        if (!homeOffice) {
+             return res.json([]);
+        }
+
+        await db.read();
+        const employees = db.data.employees || [];
+        const hardware = db.data.hardware || [];
+
+        const suggestions = [];
+
+        // Filter hardware that is allocated (not STOCK)
+        const isStock = (val) => !val || val === '' || String(val).toUpperCase() === 'STOCK';
+        
+        hardware.forEach(hw => {
+            const allocatedTo = hw.Allocated_To;
+            const issuedTo = hw.Issued_To;
+            
+            // hardware is considered held by an employee if allocated or issued is set and not STOCK
+            let targetPin = null;
+            if (!isStock(allocatedTo)) {
+                targetPin = normalizePin(allocatedTo);
+            } else if (!isStock(issuedTo)) {
+                targetPin = normalizePin(issuedTo);
+            }
+
+            if (targetPin) {
+                // Find the employee holding this hardware
+                const emp = employees.find(e => normalizePin(e.PIN) === targetPin);
+                
+                // If employee exists and their current office is NOT the homeOffice
+                if (emp && emp.Office && String(emp.Office).trim() !== String(homeOffice).trim()) {
+                    suggestions.push({
+                        Item_Name: hw.Item_Name,
+                        EDP_Serial: hw.EDP_Serial,
+                        PIN: emp.PIN,
+                        Name: emp.Name || emp['Employee Name'],
+                        Wing: emp.Wing || '-',
+                        Office: emp.Office,
+                        hardware_id: hw.id
+                    });
+                }
+            }
+        });
+
+        res.json(suggestions);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to get office suggestions' });
+    }
+});
+
 // Stock Count - Get count of items in stock grouped by item type
 app.get('/api/dashboard/stock-count', async (req, res) => {
     try {
@@ -3563,14 +3640,19 @@ app.put('/api/dashboard/hardware-status/update', async (req, res) => {
         const { id, status } = req.body;
         if (!id || !status) return res.status(400).json({ error: 'id and status are required' });
 
-        await db.read();
-        const index = db.data.hardware.findIndex(h => h.id === id);
-        if (index === -1) return res.status(404).json({ error: 'Hardware not found' });
+        const result = await db.update((dataObj) => {
+            const index = dataObj.hardware.findIndex(h => h.id === id);
+            if (index === -1) return { error: 'Hardware not found', status: 404 };
 
-        db.data.hardware[index].Status = status;
-        await db.write();
+            dataObj.hardware[index].Status = status;
+            return { success: true, item: dataObj.hardware[index] };
+        });
 
-        res.json({ message: 'Status updated', item: db.data.hardware[index] });
+        if (!result.success) {
+            return res.status(result.status).json({ error: result.error });
+        }
+
+        res.json({ message: 'Status updated', item: result.item });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Failed to update status' });
@@ -3626,28 +3708,59 @@ export async function stopServer() {
 // --- Employee PIN Deduplication ---
 app.post('/api/employees/deduplicate', async (req, res) => {
     try {
-        await db.read();
-        const employees = db.data.employees || [];
-        const seen = new Map();
-        const unique = [];
+        const result = await db.update((dataObj) => {
+            const employees = dataObj.employees || [];
+            const seen = new Map();
+            const unique = [];
 
-        for (const emp of employees) {
-            const pinKey = String(emp.PIN);
-            if (!seen.has(pinKey)) {
-                seen.set(pinKey, true);
-                unique.push(emp);
+            for (const emp of employees) {
+                const pinKey = String(emp.PIN);
+                if (!seen.has(pinKey)) {
+                    seen.set(pinKey, true);
+                    unique.push(emp);
+                }
             }
-        }
 
-        const removed = employees.length - unique.length;
-        db.data.employees = unique;
-        await db.write();
+            const removed = employees.length - unique.length;
+            dataObj.employees = unique;
+            return { removed, remaining: unique.length };
+        });
 
-        console.log(`Deduplication complete: removed ${removed} duplicates, ${unique.length} remaining`);
-        res.json({ message: `Removed ${removed} duplicate employees. ${unique.length} unique records remaining.`, removed, remaining: unique.length });
+        console.log(`Deduplication complete: removed ${result.removed} duplicates, ${result.remaining} remaining`);
+        res.json({ message: `Removed ${result.removed} duplicate employees. ${result.remaining} unique records remaining.`, removed: result.removed, remaining: result.remaining });
     } catch (error) {
         console.error('Context:', error.message || error);
         res.status(500).json({ error: 'Deduplication failed' });
+    }
+});
+
+// --- Backup History Sync ---
+app.get('/api/backup/history', async (req, res) => {
+    try {
+        await db.read();
+        res.json({ history: db.data.backupHistory || [] });
+    } catch (error) {
+        console.error('Backup history read error:', error);
+        res.status(500).json({ error: 'Failed to read backup history' });
+    }
+});
+
+app.post('/api/backup/history', async (req, res) => {
+    try {
+        const record = req.body;
+        if (!record || !record.date) {
+            return res.status(400).json({ error: 'Invalid backup record' });
+        }
+        
+        await db.update(data => {
+            if (!data.backupHistory) data.backupHistory = [];
+            data.backupHistory = [record, ...data.backupHistory].slice(0, 20); // Keep last 20 globally
+        });
+        
+        res.json({ success: true, history: db.data.backupHistory });
+    } catch (error) {
+        console.error('Backup history write error:', error);
+        res.status(500).json({ error: 'Failed to write backup history' });
     }
 });
 
@@ -3806,12 +3919,23 @@ app.post('/api/backup/restore', async (req, res) => {
             console.log('Pre-restore backup saved:', backupPath);
         }
 
-        // Write the restored data
-        fs.writeFileSync(dbPath, decoded, 'utf8');
+        // Write the restored data atomically
+        await db.update(data => {
+            const history = data.backupHistory || [];
+            
+            // Clear current data keys
+            for (let key in data) {
+                delete data[key];
+            }
+            
+            // Load parsed data
+            Object.assign(data, parsed);
+            
+            // Preserve backup history across restores
+            data.backupHistory = history;
+        });
+        
         console.log('Database restored from uploaded file');
-
-        // Reinitialize the database
-        await initDatabase(dbPath);
 
         // Count records for response
         await db.read();

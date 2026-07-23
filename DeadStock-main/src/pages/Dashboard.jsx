@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faSync, faTachometerAlt, faExclamationTriangle, faBox, faUser, faFileAlt, faWrench } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faSync, faTachometerAlt, faExclamationTriangle, faBox, faUser, faFileAlt, faWrench, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import { formatDate } from '../utils/formatDate';
 import { getJson, postJson, putJson, deleteJson } from '../utils/api';
+import { useNavigate } from 'react-router-dom';
+import HardwareAllocationModal from '../components/HardwareAllocationModal';
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const [nocQuery, setNocQuery] = useState('');
     const [nocResult, setNocResult] = useState(null);
     const [nocLoading, setNocLoading] = useState(false);
@@ -17,11 +20,19 @@ const Dashboard = () => {
     const [, setStockLoading] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [bifurcationData, setBifurcationData] = useState(null);
+    
+    // Modal state for Re-allocation
+    const [allocationModal, setAllocationModal] = useState({ show: false, item: null });
 
     // Hardware Status (Under Repair / Not Working / Server Room / E-Waste)
     const [statusCounts, setStatusCounts] = useState({ underRepairCount: 0, notWorkingCount: 0, serverRoomCount: 0, eWasteCount: 0 });
     const [selectedStatusType, setSelectedStatusType] = useState(null);
     const [statusDetailList, setStatusDetailList] = useState(null);
+
+    const [officeSuggestions, setOfficeSuggestions] = useState([]);
+    const [officesList, setOfficesList] = useState([]);
+    const [selectedHomeOffice, setSelectedHomeOffice] = useState('AUDIT-I');
+    const [officeSuggestionsLoading, setOfficeSuggestionsLoading] = useState(false);
 
     const [alert, setAlert] = useState(null);
 
@@ -36,11 +47,46 @@ const Dashboard = () => {
             await Promise.all([
                 fetchRetirementSuggestions(),
                 fetchStockData(),
-                fetchHardwareStatus()
+                fetchHardwareStatus(),
+                fetchOfficesConfig()
             ]);
         };
         loadInitialData();
     }, []);
+
+    const fetchOfficesConfig = async () => {
+        try {
+            const res = await getJson('/employees/config');
+            const data = await res.json();
+            if (data.offices && data.offices.length > 0) {
+                setOfficesList(data.offices);
+                if (!data.offices.includes('AUDIT-I')) {
+                    setSelectedHomeOffice(data.offices[0]);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch offices:', error);
+        }
+    };
+
+    const fetchOfficeSuggestions = async () => {
+        if (!selectedHomeOffice) return;
+        setOfficeSuggestionsLoading(true);
+        try {
+            const res = await getJson(`/dashboard/office-suggestions?homeOffice=${encodeURIComponent(selectedHomeOffice)}`);
+            const data = await res.json();
+            setOfficeSuggestions(data);
+        } catch (error) {
+            console.error('Office suggestions error:', error);
+            showAlert('error', 'Failed to fetch office suggestions');
+        } finally {
+            setOfficeSuggestionsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchOfficeSuggestions();
+    }, [selectedHomeOffice]);
 
     // NOC Search
     const handleNocSearch = async () => {
@@ -157,23 +203,9 @@ const Dashboard = () => {
     };
 
     // Move to Stock action
-    const handleMoveToStock = async (hardwareId) => {
-        try {
-            const res = await postJson('/hardware/allocate', {
-                id: hardwareId,
-                PIN: 'STOCK',
-                Issued_Date: new Date().toISOString().split('T')[0]
-            });
-
-            if (res.ok) {
-                showAlert('success', 'Hardware moved to stock successfully');
-                fetchRetirementSuggestions();
-            } else {
-                showAlert('error', 'Failed to move hardware to stock');
-            }
-        } catch (error) {
-            showAlert('error', 'Error updating hardware');
-        }
+    const handleMoveToStock = (item) => {
+        // Instead of immediate allocation, open the allocation modal for this item
+        setAllocationModal({ show: true, item });
     };
 
     // Delete Employee
@@ -557,14 +589,14 @@ const Dashboard = () => {
                                                     <div className="action-buttons">
                                                         <button
                                                             className="btn btn-sm btn-primary"
-                                                            onClick={() => handleMoveToStock(item.hardware_id)}
-                                                            title="Move to Stock"
+                                                            onClick={() => handleMoveToStock(item)}
+                                                            title="Move to Stock / Re-allocate"
                                                         >
                                                             Move to Stock
                                                         </button>
                                                         <button
                                                             className="btn btn-sm btn-outline"
-                                                            onClick={() => window.location.href = '/permanent-allocation'}
+                                                            onClick={() => navigate('/permanent-allocation')}
                                                             title="Transfer to Permanent Allocation"
                                                         >
                                                             Transfer
@@ -626,6 +658,99 @@ const Dashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Office Suggestions Section */}
+            <div className="card dashboard-card">
+                <div className="card-header">
+                    <h2><FontAwesomeIcon icon={faBuilding} /> Office Suggestions</h2>
+                    <div className="ml-auto" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <select 
+                            className="form-input" 
+                            style={{ margin: 0, padding: '5px' }}
+                            value={selectedHomeOffice}
+                            onChange={(e) => setSelectedHomeOffice(e.target.value)}
+                        >
+                            <option value="">Select Home Office</option>
+                            {officesList.map((office, idx) => (
+                                <option key={idx} value={office}>{office}</option>
+                            ))}
+                        </select>
+                        <button className="btn btn-outline" onClick={() => setSelectedHomeOffice(selectedHomeOffice)}>
+                            <FontAwesomeIcon icon={faSync} /> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div className="card-body">
+                    <p className="helper-text" style={{ marginBottom: '15px' }}>
+                        Shows employees who have allotted hardware but have been transferred to another office (not {selectedHomeOffice || 'selected office'}).
+                    </p>
+                    
+                    {officeSuggestionsLoading ? (
+                        <p>Loading suggestions...</p>
+                    ) : officeSuggestions.length > 0 ? (
+                        <div className="table-responsive">
+                            <table className="supplier-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item Name</th>
+                                        <th>EDP Serial</th>
+                                        <th>PIN</th>
+                                        <th>Name</th>
+                                        <th>Wing</th>
+                                        <th>Office</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {officeSuggestions.map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td>{item.Item_Name}</td>
+                                            <td>{item.EDP_Serial}</td>
+                                            <td>{item.PIN}</td>
+                                            <td>{item.Name}</td>
+                                            <td>{item.Wing || '-'}</td>
+                                            <td style={{ color: '#e74c3c', fontWeight: 'bold' }}>{item.Office}</td>
+                                            <td>
+                                                <div className="action-buttons">
+                                                    <button
+                                                        className="btn btn-sm btn-primary"
+                                                        onClick={() => handleMoveToStock(item)}
+                                                        title="Move to Stock / Re-allocate"
+                                                    >
+                                                        Move to Stock
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-sm btn-outline"
+                                                        onClick={() => navigate('/permanent-allocation')}
+                                                        title="Transfer to Permanent Allocation"
+                                                    >
+                                                        Transfer
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="text-success-italic">✓ No employees with hardware transferred outside {selectedHomeOffice}</p>
+                    )}
+                </div>
+            </div>
+
+            <HardwareAllocationModal
+                show={allocationModal.show}
+                item={allocationModal.item}
+                onClose={() => setAllocationModal({ show: false, item: null })}
+                onSaveSuccess={() => {
+                    showAlert('success', 'Allocation Updated Successfully');
+                    fetchRetirementSuggestions();
+                    if (selectedHomeOffice) {
+                        fetchOfficeSuggestions();
+                    }
+                }}
+            />
         </div>
     );
 };

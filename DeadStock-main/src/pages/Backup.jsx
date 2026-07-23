@@ -28,14 +28,23 @@ const Backup = () => {
     const intervalRef = useRef(null);
     const restoreInputRef = useRef(null);
 
-    // Load saved settings from localStorage
+    // Load saved settings from localStorage & fetch centralized history
     useEffect(() => {
         const saved = JSON.parse(localStorage.getItem('backupSettings') || '{}');
         if (saved.folder) setBackupFolder(saved.folder);
         if (saved.time) setBackupTime(saved.time);
         if (saved.autoEnabled) setAutoBackupEnabled(saved.autoEnabled);
-        if (saved.lastBackup) setLastBackup(saved.lastBackup);
-        if (saved.history) setBackupHistory(saved.history);
+        
+        // Fetch centralized history from server
+        getJson('/backup/history')
+            .then(res => res.json())
+            .then(data => {
+                if (data.history) {
+                    setBackupHistory(data.history);
+                    if (data.history.length > 0) setLastBackup(data.history[0]);
+                }
+            })
+            .catch(err => console.error('Failed to load backup history:', err));
     }, []);
 
     // Save settings to localStorage whenever they change
@@ -43,11 +52,28 @@ const Backup = () => {
         localStorage.setItem('backupSettings', JSON.stringify({
             folder: backupFolder,
             time: backupTime,
-            autoEnabled: autoBackupEnabled,
-            lastBackup,
-            history: backupHistory.slice(0, 10) // Keep last 10
+            autoEnabled: autoBackupEnabled
         }));
-    }, [backupFolder, backupTime, autoBackupEnabled, lastBackup, backupHistory]);
+    }, [backupFolder, backupTime, autoBackupEnabled]);
+
+    const saveBackupRecord = async (record) => {
+        try {
+            const histRes = await postJson('/backup/history', record);
+            if (histRes.ok) {
+                const histData = await histRes.json();
+                if (histData.history) {
+                    setBackupHistory(histData.history);
+                    setLastBackup(histData.history[0] || record);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error('History sync error:', e);
+        }
+        // Fallback
+        setBackupHistory(prev => [record, ...prev].slice(0, 20));
+        setLastBackup(record);
+    };
 
     // Auto-backup scheduler
     useEffect(() => {
@@ -146,8 +172,7 @@ const Backup = () => {
                     auto: isAuto
                 };
 
-                setLastBackup(backupRecord);
-                setBackupHistory(prev => [backupRecord, ...prev].slice(0, 10));
+                await saveBackupRecord(backupRecord);
                 showAlert('success', `${isAuto ? 'Auto-backup' : 'Backup'} saved: ${excelFileName}${dbSaved ? ' + Database file' : ''}`);
             } else {
                 // Browser fallback - download Excel directly
@@ -191,8 +216,7 @@ const Backup = () => {
                     sheets: data.sheets,
                     auto: false
                 };
-                setLastBackup(backupRecord);
-                setBackupHistory(prev => [backupRecord, ...prev].slice(0, 10));
+                await saveBackupRecord(backupRecord);
                 showAlert('success', `Backup downloaded: ${excelFileName}`);
             }
         } catch (error) {
