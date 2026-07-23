@@ -3457,6 +3457,61 @@ app.get('/api/dashboard/retirement-suggestions', async (req, res) => {
     }
 });
 
+// Office Suggestions - Find employees who hold hardware but are not in the selected Home Office
+app.get('/api/dashboard/office-suggestions', async (req, res) => {
+    try {
+        const { homeOffice } = req.query;
+        if (!homeOffice) {
+             return res.json([]);
+        }
+
+        await db.read();
+        const employees = db.data.employees || [];
+        const hardware = db.data.hardware || [];
+
+        const suggestions = [];
+
+        // Filter hardware that is allocated (not STOCK)
+        const isStock = (val) => !val || val === '' || String(val).toUpperCase() === 'STOCK';
+        
+        hardware.forEach(hw => {
+            const allocatedTo = hw.Allocated_To;
+            const issuedTo = hw.Issued_To;
+            
+            // hardware is considered held by an employee if allocated or issued is set and not STOCK
+            let targetPin = null;
+            if (!isStock(allocatedTo)) {
+                targetPin = normalizePin(allocatedTo);
+            } else if (!isStock(issuedTo)) {
+                targetPin = normalizePin(issuedTo);
+            }
+
+            if (targetPin) {
+                // Find the employee holding this hardware
+                const emp = employees.find(e => normalizePin(e.PIN) === targetPin);
+                
+                // If employee exists and their current office is NOT the homeOffice
+                if (emp && emp.Office && String(emp.Office).trim() !== String(homeOffice).trim()) {
+                    suggestions.push({
+                        Item_Name: hw.Item_Name,
+                        EDP_Serial: hw.EDP_Serial,
+                        PIN: emp.PIN,
+                        Name: emp.Name || emp['Employee Name'],
+                        Wing: emp.Wing || '-',
+                        Office: emp.Office,
+                        hardware_id: hw.id
+                    });
+                }
+            }
+        });
+
+        res.json(suggestions);
+    } catch (error) {
+        console.error('Context:', error.message || error);
+        res.status(500).json({ error: 'Failed to get office suggestions' });
+    }
+});
+
 // Stock Count - Get count of items in stock grouped by item type
 app.get('/api/dashboard/stock-count', async (req, res) => {
     try {

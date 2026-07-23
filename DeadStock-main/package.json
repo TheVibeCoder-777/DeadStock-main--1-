@@ -1,7 +1,7 @@
 {
   "name": "deadstock",
   "productName": "DeadStock",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "description": "Inventory Management System - Hardware and Software Tracking",
   "author": "DeadStock Team",
   "main": "electron/main.cjs",
